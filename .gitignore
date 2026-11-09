@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+*.log
+.DS_Store
+user-data*/
+*.sqlite3*
+release/
+/Waypoint-*.zip
+.env
+.env.*
+!.env.example

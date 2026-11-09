@@ -1,0 +1,2 @@
+pymobiledevice3==11.50.2
+certifi
