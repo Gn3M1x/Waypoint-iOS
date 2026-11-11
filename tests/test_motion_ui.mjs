@@ -1,6 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {normaliseMotion, formatPace} from '../web/motion.mjs';
+import {normaliseMotion, formatPace, RunningMarker} from '../web/motion.mjs';
+
+test('the optional running overlay only starts during demo route playback',()=>{
+  const element = {hidden:true};
+  const marker = new RunningMarker(element);
+  const moving = {demo:true, state:'moving', position:[38,114.52]};
+  marker.update(moving,false);
+  marker.update({...moving,demo:false},true);
+  marker.update({...moving,state:'holding'},true);
+  marker.update({...moving,position:null},true);
+  assert.equal(element.hidden,true);
+  assert.equal(marker.animation,undefined);
+});
 
 test('pace input has the expected units and default smooth random setting',()=>{
   const value=normaliseMotion({mode:'pace',pace_seconds:360});

@@ -11,6 +11,11 @@
   <div class="top-actions"><span id="connection-pill">未连接</span><button id="exit">恢复并退出</button></div>
 </header>
 <main>
+  <div class="mode-bar"><div class="segmented modes" role="group" aria-label="地图操作模式"><button id="mode-browse">浏览</button><button id="mode-point">单点定位</button><button id="mode-route">路线模拟</button></div></div>
+  <div class="map-toolbar">
+    <span id="edit-hint"></span>
+    <div class="tools"><button id="open-search">⌕ 搜索</button><button id="open-favorites">☆ 收藏夹</button></div>
+  </div>
   <aside class="sidebar" aria-label="设备与编辑器">
     <details class="device section" open><summary>连接设备 <span id="state-label">未连接</span></summary>
       <div class="device-picker"><select id="devices" aria-label="USB 设备"><option value="">正在查找设备…</option></select><button id="refresh" title="刷新 USB 设备" aria-label="刷新 USB 设备">↻</button></div>
@@ -48,14 +53,10 @@
     </details><details class="help"><summary>首次使用与连接问题</summary><ol><li>开启 iPhone“设置 → 隐私与安全性 → 开发者模式”，重启后确认。</li><li>保持手机解锁，用可传数据的数据线连接，选择“信任此电脑”。Windows 需先安装 Apple Devices。</li><li>刷新并选择设备，点击“准备并连接”。首次准备可能下载开发者组件。</li><li>选一个位置，点击“应用选中位置”，打开 iPhone 地图并回到当前位置，确认蓝点是否移动。</li><li>结束时点击“恢复真实定位”或“恢复并退出”。若恢复失败，重连后重试，必要时重启手机。</li></ol><p>这款工具发送开发者定位指令，不能验证步道乐跑是否接受记录，也不会修改系统步数。</p></details>
   </aside>
   <section class="workspace" aria-label="地图工作区">
-    <div class="map-toolbar">
-      <div class="segmented modes" aria-label="地图操作模式"><button id="mode-browse">浏览</button><button id="mode-point">单点</button><button id="mode-route">路线编辑</button></div>
-      <div class="tools"><button id="open-search">⌕ 搜索</button><button id="open-favorites">☆ 收藏夹</button></div>
-    </div>
     <div class="map-container">
       <canvas id="basemap" aria-hidden="true"></canvas>
       <canvas id="map" tabindex="0" aria-label="交互地图，可拖动平移，在单点或路线编辑模式下点击选点"></canvas>
-      <span id="edit-hint" class="hint-chip"></span>
+      <span id="runner-marker" hidden aria-hidden="true"><i></i></span>
       <div class="map-settings"><select id="map-source" aria-label="地图来源"><option value="amap">高德地图</option><option value="osm">OpenStreetMap</option></select>
       <select id="scroll-mode" aria-label="地图滚动方式" title="触控板双指平移，捏合缩放。鼠标可选滚轮缩放。"><option value="zoom">滚轮缩放</option><option value="pan">双指平移</option></select></div>
       <div id="map-loading"><span id="tile-message">正在加载底图…</span><button id="retry-tiles" hidden>重试</button></div>
@@ -75,7 +76,7 @@
   <small id="favorites-loading" hidden>正在读取收藏…</small><div id="favorites-list"></div>
 </section>
     </div>
-    <div class="map-status"><span id="map-view"></span><span id="demo-banner" hidden>演示模式 · 仅模拟设备</span></div>
+    <div class="map-status"><span id="map-view"></span><label id="runner-option" hidden title="预览地图标记的跑步起伏"><input type="checkbox" id="runner-toggle">跑步动效</label><span id="demo-banner" hidden>演示模式</span></div>
   </section>
 </main>
 <footer class="transport"><div class="play-status"><span id="status-dot" class="status-dot"></span><div><small>已发送里程</small><strong id="sent-distance">0 米</strong></div></div>

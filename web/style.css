@@ -38,8 +38,12 @@ small,.micro,.hint { color:var(--muted); font-size:12px }
 #connection-pill::before,.status-dot { content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:#afbab2 }
 #connection-pill.connected::before,.status-dot.ok { background:#48c98e }
 .status-dot.error { background:#c65834 }
-main { min-height:0; display:grid; grid-template-columns:300px minmax(0,1fr) }
-.sidebar { min-height:0; overflow:auto; overscroll-behavior:contain; padding:0 18px 12px; background:var(--paper); border-right:1px solid #c7d3cb }
+main { min-height:0; display:grid; grid-template-columns:300px minmax(0,1fr); grid-template-rows:auto minmax(0,1fr); grid-template-areas:"modes tools" "sidebar map" }
+.mode-bar { grid-area:modes; display:flex; align-items:center; padding:8px 18px; background:var(--paper); border-right:1px solid #c7d3cb; border-bottom:1px solid var(--line) }
+.mode-bar .modes { width:100% }
+.modes button { flex:1 }
+#edit-hint { color:var(--muted); font-size:13px }
+.sidebar { grid-area:sidebar; min-height:0; overflow:auto; overscroll-behavior:contain; padding:0 18px 12px; background:var(--paper); border-right:1px solid #c7d3cb }
 .section,.help { padding:15px 0; border-bottom:1px solid var(--line) }
 .section > * + *, .help ol { margin-top:9px }
 summary { cursor:pointer; display:flex; align-items:center; gap:6px; list-style:none; min-height:24px }
@@ -70,8 +74,8 @@ summary small, .count,#state-label { margin-left:3px; font-size:11px; font-weigh
 pre { white-space:pre-wrap; max-height:170px; overflow:auto; font-size:11px }
 .help { border:0 }
 .help ol { padding-left:16px }
-.workspace { min-width:0; min-height:0; display:grid; grid-template-rows:auto minmax(0,1fr) 25px; background:var(--paper) }
-.map-toolbar { min-height:54px; display:flex; align-items:center; justify-content:space-between; gap:6px; padding:8px 16px; border-bottom:1px solid var(--line) }
+.workspace { grid-area:map; min-width:0; min-height:0; display:grid; grid-template-rows:minmax(0,1fr) 25px; background:var(--paper) }
+.map-toolbar { grid-area:tools; background:var(--paper); min-height:54px; display:flex; align-items:center; justify-content:space-between; gap:6px; padding:8px 16px; border-bottom:1px solid var(--line) }
 .segmented { display:inline-flex; padding:3px; gap:2px; border-radius:8px; background:#eaf0e9 }
 .segmented button { border:1px solid transparent; background:transparent; min-height:27px; padding:3px 11px; font-size:13px; color:#4d6157 }
 .segmented button.active { background:white; border-color:#c6d6c9; color:#066048; box-shadow:0 1px 3px #18362a12 }
@@ -82,9 +86,12 @@ pre { white-space:pre-wrap; max-height:170px; overflow:auto; font-size:11px }
 #map[data-mode=point],#map[data-mode=route] { cursor:crosshair }
 #map.over-point { cursor:grab }
 #map.dragging { cursor:grabbing }
-.hint-chip,.map-settings,.navigation,.map-legend,.attribution,#map-loading { position:absolute }
-.hint-chip,.map-legend,.attribution,#map-loading { background:#fffffff2; color:#375046; font-size:12px; border-radius:5px; padding:4px 8px }
-.hint-chip { left:12px; top:12px; pointer-events:none; box-shadow:0 1px 6px #1a332a22 }
+.map-settings,.navigation,.map-legend,.attribution,#map-loading { position:absolute }
+.map-legend,.attribution,#map-loading { background:#fffffff2; color:#375046; font-size:12px; border-radius:5px; padding:4px 8px }
+#runner-marker { position:absolute; left:0; top:0; width:0; height:0; pointer-events:none }
+#runner-marker i { position:absolute; left:-4px; top:-4px; width:8px; height:8px; border-radius:50%; background:#1556b6; box-shadow:0 0 0 1.5px white }
+#runner-option { margin-left:auto; margin-right:10px; display:inline-flex; gap:4px; align-items:center; cursor:pointer }
+#runner-toggle { margin:0 }
 .map-settings { right:12px; top:12px; display:flex; align-items:center; gap:4px }
 .map-settings select { font-size:12px; padding:4px; min-height:28px; max-width:125px }
 #map-loading { right:12px; top:49px; font-size:11px }
@@ -123,21 +130,24 @@ pre { white-space:pre-wrap; max-height:170px; overflow:auto; font-size:11px }
 .favorite-load { color:var(--teal) }
 .pace-fields input { max-width:60px }
 #toast { position:fixed; bottom:75px; left:50%; transform:translateX(-50%); max-width:min(540px,90vw); padding:8px 14px; color:white; background:#193f33; border-radius:7px; z-index:5; pointer-events:none }
-@media(max-width:1080px) { main { grid-template-columns:272px minmax(0,1fr) } .sidebar { padding-inline:12px } .hint-chip { max-width:52% } }
+@media(max-width:1080px) { main { grid-template-columns:272px minmax(0,1fr) } .sidebar { padding-inline:12px } }
 @media(max-width:760px) {
   body { grid-template-rows:44px minmax(0,1fr) auto }
   .topbar { padding:0 10px; gap:8px } .brand { font-size:19px } .brand-icon { width:25px; height:25px }
   .topbar h1 { font-size:12px; padding-left:8px } .top-actions { gap:7px }
-  main { display:flex; flex-direction:column } .workspace { order:-1; flex:1; grid-template-rows:auto minmax(0,1fr) 21px }
-  .sidebar { height:29%; border:0; border-top:1px solid var(--line); padding-inline:12px }
+  main { position:relative; grid-template-columns:minmax(0,1fr) auto; grid-template-rows:auto minmax(0,1fr) 29%; grid-template-areas:"modes tools" "map map" "sidebar sidebar" }
+  .workspace { grid-template-rows:minmax(0,1fr) 24px }
+  .mode-bar { padding:4px 6px; border-right:0 } .mode-bar .modes { width:auto }
+  .sidebar { border:0; border-top:1px solid var(--line); padding-inline:12px }
   .section { padding:9px 0 } .map-toolbar { padding:4px 8px; min-height:41px }
   .tools { gap:4px } .tools button,.segmented button { padding-inline:7px; font-size:12px }
-  .hint-chip { top:45px; left:7px; max-width:80%; font-size:11px }
+  #edit-hint { position:absolute; left:7px; top:84px; z-index:1; pointer-events:none; background:#fffffff2; padding:2px 6px; border-radius:4px; font-size:11px }
+  main:has(.popup:not([hidden]), .favorites-panel:not([hidden])) #edit-hint { visibility:hidden }
   .map-settings { left:7px; right:auto; top:7px }
   #map-loading { top:auto; right:auto; left:7px; bottom:34px }
   .transport { padding:6px 8px; gap:6px; min-height:48px } .pace-readout { display:none }
   .play-actions { gap:4px } .play-actions button { font-size:12px; padding:4px 7px; min-height:31px }
   .play-actions .primary { min-width:0 } .play-status { gap:5px } .play-status strong { font-size:14px }
 }
-@media (max-height:530px) and (max-width:760px) { .sidebar { height:23% } .hint-chip { display:none } }
+@media (max-height:530px) and (max-width:760px) { main { grid-template-rows:auto minmax(0,1fr) 23% } #edit-hint { display:none } }
 @media (prefers-reduced-motion:reduce) { * { transition:none!important } }

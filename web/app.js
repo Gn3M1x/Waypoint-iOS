@@ -1,7 +1,7 @@
 'use strict';
 import {fromMapCoordinate} from './map-coordinates.mjs';
 import {EditorMap, History} from './editor-map.mjs';
-import {normaliseMotion, formatPace} from './motion.mjs';
+import {normaliseMotion, formatPace, RunningMarker} from './motion.mjs';
 const $ = id => document.getElementById(id);
 const TOKEN_KEY = 'waypoint-token';
 const fromFragment = new URLSearchParams(location.hash.slice(1)).get('token');
@@ -12,6 +12,13 @@ let activeAction=null, pollGeneration=0;
 let motionMode='pace', searchBusy=false, searchGeneration=0;
 let selectedLabel='', favoriteKind='address', favoriteTrash=false, favoriteItems=[], favoritePending=null, favoriteBusy=false, favoriteGeneration=0, previousDraft=null;
 const edits = new History();
+const runner = new RunningMarker($('runner-marker'));
+$('runner-toggle').checked = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+function syncRunner() {
+  runner.update(status, $('runner-toggle').checked);
+  if (map.width) runner.place(map);
+}
+$('runner-toggle').onchange = syncRunner;
 let index = -1;
 const names = {disconnected:'未连接', connecting:'连接中', ready:'已就绪', holding:'保持位置', moving:'路线移动中', paused:'已暂停', error:'需要处理'};
 function toast(text) { $('toast').textContent = text; $('toast').hidden = false; clearTimeout(toast.timer); toast.timer = setTimeout(() => $('toast').hidden = true, 12000); }
@@ -24,7 +31,7 @@ async function api(action, body) {
 async function act(action, body = {}) {
   if (busy || exiting) return null;
   busy = true; activeAction=action; ++pollGeneration; renderControls();
-  try { const result = await api(action, body); if (result.state) renderStatus(result); return result; }
+  try { const result = await api(action, body); if (action === 'route') runner.stop(); if (result.state) renderStatus(result); return result; }
   catch (error) { toast(error.message); return null; }
   finally { activeAction=null; busy=false; await poll(); renderControls(); }
 }
@@ -56,7 +63,8 @@ function renderStatus(s) {
   $('sent-position').textContent = s.position ? s.position.map(v=>v.toFixed(5)).join(', ') : '尚未发送';
   document.body.classList.toggle('demo-mode',s.demo);
   document.querySelector('.compatibility').textContent = s.device ? 'iOS '+s.device.ios+' · 定位效果待确认' : 'iPhone · 定位效果待验证';
-  $('demo-banner').hidden = !s.demo;
+  $('demo-banner').hidden = $('runner-option').hidden = !s.demo;
+  syncRunner();
   $('connection-pill').textContent = s.demo ? '演示模式' : s.connected ? 'USB 已连接' : '未连接';
   $('connection-pill').classList.toggle('connected', s.connected);
   $('state-label').textContent = names[s.state] || s.state;
@@ -79,7 +87,7 @@ async function poll() {
     const snapshot = await api('status');
     if (generation === pollGeneration && !exiting) renderStatus(snapshot);
   }
-  catch (e) { if(generation !== pollGeneration)return; $('connection-pill').textContent='控制台离线'; $('status-text').textContent = token ? '无法连接本机控制程序。请确认启动窗口仍在运行。' : '请通过附带的启动程序打开控制台。'; }
+  catch (e) { if(generation !== pollGeneration)return; runner.stop(); $('runner-option').hidden=true; $('connection-pill').textContent='控制台离线'; $('status-text').textContent = token ? '无法连接本机控制程序。请确认启动窗口仍在运行。' : '请通过附带的启动程序打开控制台。'; }
 }
 function setCoordinates(p, label = '') {
   selected = p;
@@ -190,6 +198,7 @@ const map = new EditorMap($('map'), $('basemap'), {
     $('retry-tiles').hidden = !failed;
   },
   view(zoom, center) {
+    runner.place(map);
     $('map-view').textContent = 'Z' + zoom.toFixed(1) + '  ·  ' + center.map(v=>v.toFixed(5)).join(', ');
   }
 });
@@ -438,6 +447,6 @@ $('export').onclick=()=>{
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='waypoint-route.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   }catch(error){toast(error.message);}
 };
-$('exit').onclick=async()=>{if(busy)return;busy=true;renderControls();try{await api('exit',{});exiting=true;$('status-title').textContent='程序已退出';$('status-text').textContent='停止模拟指令已发送。可关闭这个页面和启动窗口。';$('connection-pill').textContent='已退出';$('connection-pill').classList.remove('connected');}catch(error){toast('退出未完成：'+error.message);}finally{busy=false;renderControls();}};
+$('exit').onclick=async()=>{if(busy)return;busy=true;renderControls();try{await api('exit',{});exiting=true;runner.stop();$('runner-option').hidden=true;$('status-title').textContent='程序已退出';$('status-text').textContent='停止模拟指令已发送。可关闭这个页面和启动窗口。';$('connection-pill').textContent='已退出';$('connection-pill').classList.remove('connected');}catch(error){toast('退出未完成：'+error.message);}finally{busy=false;renderControls();}};
 window.addEventListener('beforeunload',e=>{if(status?.recovery_needed&&!exiting){e.preventDefault();e.returnValue='';}});
 setMode('browse'); $('refresh').click(); setInterval(poll,1000);

@@ -97,6 +97,18 @@ try {
   async function viewportOK(width,height) {
     const size=await evaluate('({w:document.documentElement.scrollWidth,h:document.documentElement.scrollHeight,map:map.clientHeight,footer:document.querySelector("footer").getBoundingClientRect().bottom})');
     assert.equal(size.w,width);assert.equal(size.h,height);
+    const modeRects=await evaluate(`(() => {
+      const sidebar=document.querySelector('.sidebar');
+      const nav=document.querySelector('.modes');
+      const first=nav.getBoundingClientRect();
+      sidebar.scrollTop=sidebar.scrollHeight;
+      const second=nav.getBoundingClientRect();
+      sidebar.scrollTop=0;
+      return {x:first.x,right:first.right,top:first.y,scrolledTop:second.y,
+        sidebarRight:sidebar.getBoundingClientRect().right,mapTop:map.getBoundingClientRect().top};
+    })()`);
+    assert.equal(modeRects.top,modeRects.scrolledTop);
+    assert.ok(modeRects.x<30 && modeRects.top<modeRects.mapTop && modeRects.right<=modeRects.sidebarRight);
     assert.ok(size.footer<=height&&size.map>=height*.36,JSON.stringify(size));
   }
   await send('Page.enable');await send('Runtime.enable');
@@ -161,11 +173,24 @@ try {
   const doc=JSON.parse(await readFile(path.join(temp,'waypoint-route.json'),'utf8'));
   assert.deepEqual(doc.points,coords);assert.equal(doc.motion.pace_seconds,330);assert.equal(doc.motion.randomize,true);
   await click('apply');await waitText('state-label','路线移动中');
+  const runnerState=()=>evaluate('document.getElementById("runner-marker").querySelector("i").getAnimations()[0]?.playState');
+  const runnerVisible=()=>evaluate('!document.getElementById("runner-marker").hidden');
+  if(!await evaluate(el('runner-toggle')+'.checked')) await click('runner-toggle');
+  await eventually(async()=>await runnerVisible() && await runnerState()==='running','demo motion should play');
+  const runnerAnchor=()=>evaluate(el('runner-marker')+'.style.translate');
+  const startAnchor=await runnerAnchor();
+  await eventually(async()=>await runnerAnchor()!==startAnchor,'runner should advance along the route');
+  await click('runner-toggle');assert.equal(await runnerVisible(),false);
+  await click('runner-toggle');assert.equal(await runnerVisible(),true);
   await click('pause');await waitText('state-label','已暂停');
+  await eventually(async()=>await runnerState()==='paused','demo motion should pause');
+  const phase=()=>evaluate('document.querySelector("#runner-marker i").getAnimations()[0].currentTime');
+  const frozen=await phase();await frame();assert.equal(await phase(),frozen);
   const held=await txt('sent-position');
   await click('clear-route');await waitText('point-count','0');await waitText('sent-position',held);
   await click('undo');await waitText('point-count','9');await waitText('state-label','已暂停');
   await click('pause');await waitText('state-label','路线移动中');
+  await eventually(async()=>await runnerState()==='running','demo motion should resume');
   await click('restore');await waitText('sent-position','尚未发送');
   await click('mode-point');await field('lat','38.0010');await field('lon','114.5175');
   await waitText('sent-position','尚未发送');await click('apply');await waitText('state-label','保持位置');
@@ -177,6 +202,13 @@ try {
   await shot('editor-1440');await resize(1280,720);await click('open-favorites');await frame();await shot('favorites-1280');
   await click('favorites-close');await resize(390,720);await click('fit');await frame();await shot('editor-390');
   await resize(1280,720);await click('restore');await waitText('sent-position','尚未发送');
+  assert.equal(await runnerVisible(),false);
+  // Reach a real endpoint in demo mode, then check that the marker stops.
+  await importFile('short.json',JSON.stringify({...doc,points:[[38,114.52],[38.00003,114.52]],closed:false,laps:1}));
+  await click('apply');await waitText('state-label','路线移动中');
+  await waitText('state-label','保持位置');assert.equal(await runnerVisible(),false);
+  await waitText('sent-position','38.00003, 114.52000');
+  await click('restore');await waitText('sent-position','尚未发送');
   // Exercise the real drawing path and measure adjacent animation frames after warm-up.
   for(const size of [0,9,2000]) {
     if(!size)await click('clear-route');
