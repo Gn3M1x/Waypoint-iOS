@@ -100,6 +100,7 @@ def make_handler(runtime, token, on_exit, data_directory=None):
             assets = {"/": ("index.html", "text/html; charset=utf-8"),
                       "/app.js": ("app.js", "text/javascript; charset=utf-8"),
                       "/map-coordinates.mjs": ("map-coordinates.mjs", "text/javascript; charset=utf-8"),
+                      "/editor-map.mjs": ("editor-map.mjs", "text/javascript; charset=utf-8"),
                       "/motion.mjs": ("motion.mjs", "text/javascript; charset=utf-8"),
                       "/style.css": ("style.css", "text/css; charset=utf-8")}
             if path not in assets:
