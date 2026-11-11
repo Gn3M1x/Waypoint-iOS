@@ -31,7 +31,7 @@ class FavoritesTests(unittest.TestCase):
     def test_route_reopens_with_original_points_and_all_motion_settings(self):
         payload = {"coordinateSystem": "WGS84", "points": [[38, 114.5], [38.001, 114.501], [38.002, 114.5]],
                    "closed": True, "laps": 3, "motion": {"mode": "pace", "pace_seconds": 330,
-                   "randomize": True, "variation_percent": 18}}
+                   "randomize": True, "variation_percent": 18, "drift_enabled": True, "drift_radius_meters": 3.5}}
         item = self.store.save({"kind": "route", "name": "操场三圈", "payload": payload})["favorite"]
         loaded = FavoritesStore(self.directory).get(item["id"])["favorite"]
         for key in ("points", "closed", "laps"):

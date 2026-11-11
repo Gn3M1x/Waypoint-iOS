@@ -78,6 +78,9 @@ function renderStatus(s) {
   const current=s.current_pace_seconds;
   $('current-pace').textContent = s.state==='moving' && current ? `${formatPace(current)} · ${s.current_speed.toFixed(1)} km/h` : s.state==='paused'?'已暂停':'当前未移动';
   $('average-pace').textContent = s.average_pace_seconds ? `已发送路线平均配速 ${formatPace(s.average_pace_seconds)}` : '平均配速会在路线开始后显示。';
+  $('drift-status').textContent = s.route_position
+    ? `已发送偏移 ${(s.drift_distance??0).toFixed(2)} 米 · ${s.state==='paused'?'已冻结':s.state==='holding'?'已到终点':s.motion.drift_enabled?'已启用':s.drift_distance>0?'收回中':'已关闭'}（相对理想路线）`
+    : '开始路线后显示已发送偏移。';
   renderControls(); if (moved) map.draw();
 }
 async function poll() {
@@ -151,7 +154,7 @@ function routeLength() { let n=0; for(let i=1;i<points.length;i++) n+=haversine(
 function readMotionUI() {
   const paceMinutes=$('pace-minutes').value,paceSeconds=$('pace-seconds').value;
   if(motionMode==='pace'&&(!paceMinutes||paceSeconds===''||!Number.isInteger(Number(paceMinutes))||!Number.isInteger(Number(paceSeconds))||Number(paceSeconds)<0||Number(paceSeconds)>59))throw Error('配速请填写整数分钟和 0–59 秒。');
-  return normaliseMotion({mode:motionMode,speed:Number($('speed').value),pace_seconds:Number(paceMinutes)*60+Number(paceSeconds),randomize:$('pace-random').checked,variation_percent:Number($('pace-variation').value)});
+  return normaliseMotion({mode:motionMode,speed:Number($('speed').value),pace_seconds:Number(paceMinutes)*60+Number(paceSeconds),randomize:$('pace-random').checked,variation_percent:Number($('pace-variation').value),drift_enabled:$('drift-enabled').checked,drift_radius_meters:Number($('drift-radius').value)});
 }
 function setMotionMode(next) {
   motionMode=next;
@@ -165,6 +168,7 @@ function applyImportedMotion(value) {
   const rounded=Math.round(motion.pace_seconds);
   $('pace-minutes').value=Math.floor(rounded/60);$('pace-seconds').value=rounded%60;
   $('pace-random').checked=motion.randomize;$('pace-variation').value=motion.variation_percent;
+  $('drift-enabled').checked=motion.drift_enabled;$('drift-radius').value=motion.drift_radius_meters;
   setMotionMode(motion.mode);
 }
 function updateRoute() {
@@ -177,6 +181,8 @@ function updateRoute() {
   $('speed-label').textContent=$('speed').value+' km/h';
   $('variation-label').textContent=`±${$('pace-variation').value}%`;
   $('pace-variation').disabled=!$('pace-random').checked;
+  $('drift-radius-label').textContent=`${$('drift-radius').value} 米`;
+  $('drift-radius').disabled=!$('drift-enabled').checked;
   renderControls(); map.draw();
 }
 
@@ -210,7 +216,7 @@ function routeDocument() {
 }
 function editorSnapshot() {
   const fields={};
-  for(const id of ['speed','pace-minutes','pace-seconds','pace-random','pace-variation'])fields[id]=$(id).type==='checkbox'?$(id).checked:$(id).value;
+  for(const id of ['speed','pace-minutes','pace-seconds','pace-random','pace-variation','drift-enabled','drift-radius'])fields[id]=$(id).type==='checkbox'?$(id).checked:$(id).value;
   return {index,points:structuredClone(points),selected:[...selected],selectedLabel,mode,motionMode,fields,closed:$('closed').checked,laps:$('laps').value,center:[...map.center],zoom:map.zoom};
 }
 function restoreEditor(draft) {
@@ -238,7 +244,7 @@ function favoriteSummary(item) {
   if(item.kind==='address')return `${s.point[0].toFixed(6)}, ${s.point[1].toFixed(6)} · WGS84`;
   const length=s.distance>=1000?`${(s.distance/1000).toFixed(2)} km`:`${s.distance.toFixed(1)} 米`;
   const motion=s.motion.mode==='pace'?formatPace(s.motion.pace_seconds):`${s.motion.speed} km/h`;
-  return `${length} · ${s.points} 个点 · ${motion}${s.motion.randomize?` · 波动 ±${s.motion.variation_percent}%`:''} · ${s.laps} 圈`;
+  return `${length} · ${s.points} 个点 · ${motion}${s.motion.randomize?` · 波动 ±${s.motion.variation_percent}%`:''}${s.motion.drift_enabled?` · 偏移 ≤${s.motion.drift_radius_meters} 米`:''} · ${s.laps} 圈`;
 }
 function cancelFavoriteForm() {favoritePending=null;$('favorite-name-form').hidden=true;}
 function renderFavorites() {
@@ -288,7 +294,7 @@ async function loadFavorite(item) {
     if(value.kind==='route')installRouteDocument(value.payload);
     else{selected=[...value.payload.point];selectedLabel=value.name;$('lat').value=selected[0].toFixed(6);$('lon').value=selected[1].toFixed(6);setMode('point');map.center=[...selected];map.zoom=value.payload.zoom;map.draw();}
     previousDraft=draft;$('favorites-undo-load').hidden=false;
-    cancelFavoriteForm();$('favorites-notice').textContent=`已载入“${value.name}”${value.kind==='route'?'及其配速、随机幅度和圈数。点击“开始路线移动”即可播放。':'，可继续编辑。'}`;
+    cancelFavoriteForm();$('favorites-notice').textContent=`已载入“${value.name}”${value.kind==='route'?'及其配速、随机变速、偏移和圈数。点击“开始路线移动”即可播放。':'，可继续编辑。'}`;
   }catch(e){toast(e.message);}
 }
 async function changeFavorite(action,item) {
@@ -328,7 +334,7 @@ $('favorite-name-form').onsubmit=async e=>{
   finally{favoriteBusy=false;$('favorite-submit').disabled=false;}
 };
 $('motion-speed').onclick=()=>setMotionMode('speed');$('motion-pace').onclick=()=>setMotionMode('pace');
-for(const id of ['pace-minutes','pace-seconds','pace-random','pace-variation'])$(id).addEventListener('input',updateRoute);
+for(const id of ['pace-minutes','pace-seconds','pace-random','pace-variation','drift-enabled','drift-radius'])$(id).addEventListener('input',updateRoute);
 $('apply-motion').onclick=()=>{try{act('motion',readMotionUI());}catch(e){toast(e.message);}};
 $('map-source').onchange=e=>map.setSource(e.target.value);
 $('retry-tiles').onclick=()=>map.retryTiles();

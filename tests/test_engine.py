@@ -1,8 +1,10 @@
 import asyncio
 import math
+import random
 import unittest
 
 from engine import Engine
+from motion import DriftProfile
 from route import Route, destination, distance, point
 
 
@@ -189,6 +191,114 @@ class EngineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.engine.state, "holding")
         self.assertAlmostEqual(self.engine.snapshot()["average_pace_seconds"], 360)
         self.assertEqual(self.engine.snapshot()["current_speed"], 0)
+
+    async def start_drifting(self, **extra):
+        settings = {"mode": "speed", "speed": 3.6, "drift_enabled": True, "drift_radius_meters": 2}
+        await self.engine.dispatch("route", {"points": [[38, 114.52], [38.01, 114.52]], "motion": settings, **extra})
+        self.engine.drift = DriftProfile(self.engine.motion, random.Random(8))
+
+    async def test_actual_device_coordinates_drift_but_route_progress_does_not(self):
+        await self.start_drifting()
+        self.assertEqual(self.device.sent[-1], (38, 114.52))
+        self.time = 20
+        await self.engine._tick()
+        snapshot = self.engine.snapshot()
+        offset = distance(self.engine.route.at(20), self.device.sent[-1])
+        self.assertGreater(offset, 0.1)
+        self.assertLessEqual(offset, 2)
+        self.assertEqual(snapshot["distance"], 20)
+        self.assertEqual(snapshot["average_pace_seconds"], 1000)
+        self.assertAlmostEqual(snapshot["drift_distance"], offset, places=3)
+        self.assertEqual(snapshot["route_position"], self.engine.route.at(20))
+
+    async def test_drift_pause_resume_uses_moving_time_and_freezes_live_edits(self):
+        await self.start_drifting()
+        self.time = 10
+        await self.engine.dispatch("pause", {})
+        held = self.engine.position
+        await self.engine.dispatch("motion", {**self.engine.motion.as_dict(), "drift_radius_meters": 4})
+        self.time = 200
+        await self.engine._tick()
+        self.assertEqual(self.engine.position, held)
+        self.assertEqual(self.engine.elapsed_moving, 10)
+        await self.engine.dispatch("resume", {})
+        self.time = 201
+        await self.engine._tick()
+        expected = self.engine.drift.position_at(self.engine.route.at(11), 11, self.engine.route.length-11)
+        self.assertEqual(self.device.sent[-1], expected)
+
+    async def test_speed_update_keeps_drift_and_live_disable_returns_to_route(self):
+        await self.start_drifting()
+        profile = self.engine.drift
+        self.time = 10
+        await self.engine.dispatch("speed", {"speed": 7.2})
+        self.assertIs(self.engine.drift, profile)
+        self.assertTrue(self.engine.motion.drift_enabled)
+        self.time = 11
+        await self.engine._tick()
+        expected = profile.position_at(self.engine.route.at(12), 11, self.engine.route.length-12)
+        self.assertEqual(self.engine.position, expected)
+        held = self.engine.position
+        await self.engine.dispatch("motion", {**self.engine.motion.as_dict(), "drift_enabled": False})
+        self.assertEqual(self.engine.position, held)
+        self.time = 16
+        await self.engine._tick()
+        self.assertEqual(self.engine.position, self.engine.route.at(self.engine.traveled))
+
+    async def test_drift_ends_exactly_and_restarting_gets_fresh_profile(self):
+        await self.start_drifting()
+        profile = self.engine.drift
+        self.time = 10000
+        await self.engine._tick()
+        self.assertEqual(self.engine.position, (38.01, 114.52))
+        self.assertEqual(self.engine.snapshot()["drift_distance"], 0)
+        self.assertEqual(self.engine.state, "holding")
+        await self.engine.dispatch("route", {"points": [[0, 0], [0.01, 0]], "motion": self.engine.motion.as_dict()})
+        self.assertIsNot(self.engine.drift, profile)
+        self.assertEqual(self.engine.position, (0, 0))
+        self.assertEqual(self.engine.elapsed_moving, 0)
+
+    async def test_drift_remains_continuous_across_lap_boundary(self):
+        await self.start_drifting(closed=True, laps=2)
+        boundary = self.engine.route.cumulative[-1]
+        self.time = boundary-0.01
+        await self.engine._tick()
+        before = self.engine.position
+        self.time = boundary+0.01
+        await self.engine._tick()
+        self.assertLess(distance(before, self.engine.position), 0.04)
+        self.assertGreater(self.engine.snapshot()["drift_distance"], 0.01)
+
+    async def test_bad_drift_settings_do_not_send_or_replace_active_route(self):
+        await self.start_drifting()
+        route = self.engine.route
+        sent = list(self.device.sent)
+        for action, data in (("motion", {"drift_enabled": "yes"}),
+                             ("route", {"points": [[0, 0], [0, 1]], "motion": {"drift_radius_meters": 20}})):
+            with self.assertRaises(ValueError):
+                await self.engine.dispatch(action, data)
+            self.assertIs(self.engine.route, route)
+            self.assertEqual(self.device.sent, sent)
+
+    async def test_failed_drift_send_does_not_advance_time_or_report_unsent_offset(self):
+        await self.start_drifting()
+        held = self.engine.snapshot()
+        self.time = 10
+        self.device.fail_set = True
+        with self.assertRaises(RuntimeError):
+            await self.engine.dispatch("pause", {})
+        snapshot = self.engine.snapshot()
+        for key in ("position", "route_position", "drift_distance", "distance", "elapsed_moving"):
+            self.assertEqual(snapshot[key], held[key])
+        self.assertTrue(snapshot["recovery_needed"])
+
+    async def test_single_point_nudge_and_recovery_remove_route_drift(self):
+        for action, payload in (("set", {"point": [38, 114]}), ("nudge", {"bearing": 90}), ("clear", {})):
+            await self.start_drifting()
+            await self.engine.dispatch(action, payload)
+            self.assertIsNone(self.engine.drift)
+            self.assertIsNone(self.engine.snapshot()["route_position"])
+            self.assertEqual(self.engine.snapshot()["drift_distance"], 0)
 
 
 if __name__ == "__main__":

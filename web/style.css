@@ -129,6 +129,9 @@ pre { white-space:pre-wrap; max-height:170px; overflow:auto; font-size:11px }
 .favorite-actions button,.favorites-tools button { font-size:12px; padding:4px 7px; min-height:26px }
 .favorite-load { color:var(--teal) }
 .pace-fields input { max-width:60px }
+.drift-controls { border-top:1px solid var(--line); padding-top:10px }
+.drift-controls .speed-row { margin-top:8px }
+#drift-status { color:var(--teal); font-variant-numeric:tabular-nums }
 #toast { position:fixed; bottom:75px; left:50%; transform:translateX(-50%); max-width:min(540px,90vw); padding:8px 14px; color:white; background:#193f33; border-radius:7px; z-index:5; pointer-events:none }
 @media(max-width:1080px) { main { grid-template-columns:272px minmax(0,1fr) } .sidebar { padding-inline:12px } }
 @media(max-width:760px) {

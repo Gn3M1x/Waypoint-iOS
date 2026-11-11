@@ -76,10 +76,14 @@ export function normaliseMotion(data) {
   const variation_percent=finite(data.variation_percent??12,0,30,'速度波动百分比');
   const randomize=data.randomize??(data.mode==='pace');
   if(typeof randomize!=='boolean')throw Error('随机变速选项无效。');
+  const drift_enabled=data.drift_enabled===undefined?false:data.drift_enabled;
+  if(typeof drift_enabled!=='boolean')throw Error('随机偏移选项无效。');
+  const drift_radius_meters=finite(data.drift_radius_meters===undefined?2:data.drift_radius_meters,0.5,10,'最大偏移（米）');
+  const drift={drift_enabled,drift_radius_meters};
   if(data.mode==='pace'){
     const pace_seconds=finite(data.pace_seconds,60,3600,'配速秒数');
-    return {mode:'pace',pace_seconds,speed:3600/pace_seconds,randomize,variation_percent};
+    return {mode:'pace',pace_seconds,speed:3600/pace_seconds,randomize,variation_percent,...drift};
   }
   const speed=finite(data.speed,0.5,30,'速度（km/h）');
-  return {mode:'speed',speed,pace_seconds:3600/speed,randomize:false,variation_percent};
+  return {mode:'speed',speed,pace_seconds:3600/speed,randomize:false,variation_percent,...drift};
 }

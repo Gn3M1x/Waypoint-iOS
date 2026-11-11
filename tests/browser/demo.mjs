@@ -90,7 +90,8 @@ try {
   async function mouse(type,x,y,buttons=0) {
     await send('Input.dispatchMouseEvent',{type,x,y,buttons,...(type==='mouseMoved'?{}:{button:'left',clickCount:1})});
   }
-  const tap=async(x,y)=>{await mouse('mousePressed',x,y,1);await mouse('mouseReleased',x,y);};
+  // Let pointer capture release settle before the next independent gesture.
+  const tap=async(x,y)=>{await mouse('mousePressed',x,y,1);await mouse('mouseReleased',x,y);await frame();};
   const drag=async(x,y,dx,dy)=>{await mouse('mousePressed',x,y,1);
     for(let i=1;i<=10;i++)await mouse('mouseMoved',x+dx*i/10,y+dy*i/10,1);
     await mouse('mouseReleased',x+dx,y+dy);await frame();};
@@ -117,6 +118,8 @@ try {
   await send('Page.navigate',{url});
   await eventually(()=>evaluate('document.querySelector("#devices")?.value==="demo-only" && !!document.querySelector("#connect:enabled")'),'demo device not ready');
   await click('connect');await waitText('state-label','已就绪');
+  assert.equal(await evaluate(el('drift-enabled')+'.checked'),true);
+  assert.equal(await value('drift-radius'),'2');
   await click('mode-route');await drag(620,310,-410,80);
   assert.equal(await txt('point-count'),'0');
   const afterRelease=await txt('map-view');await mouse('mouseMoved',820,360);await frame();
@@ -157,6 +160,7 @@ try {
   const gpx='<gpx><trk><trkseg>'+coords.map(([a,b])=>'<trkpt lat="'+a+'" lon="'+b+'"/>').join('')+'</trkseg></trk></gpx>';
   await importFile('sample.gpx',gpx);await waitText('point-count','9');
   await click('closed');await field('pace-minutes','5');await field('pace-seconds','30');
+  await field('drift-radius','3.5');
   await click('save-route-favorite');await field('favorite-name','演示环线');await click('favorite-submit');
   await eventually(async()=>(await txt('favorites-list')).includes('演示环线'),'save route favorite');
   await click('favorites-close');await click('save-address-favorite');await field('favorite-name','演示终点');await click('favorite-submit');
@@ -164,15 +168,25 @@ try {
   await evaluate('document.querySelector(".favorite-load").click()');
   await eventually(()=>evaluate(el('mode-point')+'.getAttribute("aria-pressed")==="true"'),'load address');
   await waitText('sent-position','尚未发送');
+  await click('drift-enabled');await field('drift-radius','0.5');
   await click('favorites-route-tab');await eventually(async()=>(await txt('favorites-list')).includes('演示环线'),'favorite list');
   await evaluate('document.querySelector(".favorite-load").click()');
   await eventually(()=>evaluate(el('mode-route')+'.getAttribute("aria-pressed")==="true"'),'load route');
   await waitText('sent-position','尚未发送');await click('favorites-close');
+  assert.equal(await evaluate(el('drift-enabled')+'.checked'),true);
+  assert.equal(await value('drift-radius'),'3.5');
   await click('export');
   await eventually(async()=>(await readdir(temp)).includes('waypoint-route.json'),'no JSON export');
   const doc=JSON.parse(await readFile(path.join(temp,'waypoint-route.json'),'utf8'));
   assert.deepEqual(doc.points,coords);assert.equal(doc.motion.pace_seconds,330);assert.equal(doc.motion.randomize,true);
+  assert.equal(doc.motion.drift_enabled,true);assert.equal(doc.motion.drift_radius_meters,3.5);
+  await importFile('drift-roundtrip.json',JSON.stringify(doc));
+  assert.equal(await value('drift-radius'),'3.5');
   await click('apply');await waitText('state-label','路线移动中');
+  const snapshot=()=>evaluate(`fetch('/api/status',{headers:{Authorization:'Bearer '+sessionStorage.getItem('waypoint-token')}}).then(r=>r.json())`);
+  await eventually(async()=>(await snapshot()).drift_distance>0.05,'actual sent position should drift');
+  const drifted=await snapshot();
+  assert.ok(drifted.drift_distance<=3.5);assert.notDeepEqual(drifted.position,drifted.route_position);
   const runnerState=()=>evaluate('document.getElementById("runner-marker").querySelector("i").getAnimations()[0]?.playState');
   const runnerVisible=()=>evaluate('!document.getElementById("runner-marker").hidden');
   if(!await evaluate(el('runner-toggle')+'.checked')) await click('runner-toggle');
@@ -187,10 +201,16 @@ try {
   const phase=()=>evaluate('document.querySelector("#runner-marker i").getAnimations()[0].currentTime');
   const frozen=await phase();await frame();assert.equal(await phase(),frozen);
   const held=await txt('sent-position');
+  const pausedDrift=await snapshot();await delay(700);
+  assert.deepEqual((await snapshot()).position,pausedDrift.position);
   await click('clear-route');await waitText('point-count','0');await waitText('sent-position',held);
   await click('undo');await waitText('point-count','9');await waitText('state-label','已暂停');
   await click('pause');await waitText('state-label','路线移动中');
   await eventually(async()=>await runnerState()==='running','demo motion should resume');
+  await click('drift-enabled');await click('apply-motion');
+  await eventually(async()=>{const s=await snapshot();return !s.motion.drift_enabled && s.drift_distance===0;},'drift should ease back to the ideal route');
+  await click('drift-enabled');await click('apply-motion');
+  await eventually(async()=>(await snapshot()).drift_distance>0.05,'drift should ease back in');
   await click('restore');await waitText('sent-position','尚未发送');
   await click('mode-point');await field('lat','38.0010');await field('lon','114.5175');
   await waitText('sent-position','尚未发送');await click('apply');await waitText('state-label','保持位置');
@@ -208,7 +228,11 @@ try {
   await click('apply');await waitText('state-label','路线移动中');
   await waitText('state-label','保持位置');assert.equal(await runnerVisible(),false);
   await waitText('sent-position','38.00003, 114.52000');
+  assert.equal((await snapshot()).drift_distance,0);
   await click('restore');await waitText('sent-position','尚未发送');
+  await importFile('legacy.json',JSON.stringify({version:1,coordinateSystem:'WGS84',points:coords,speed:5,closed:false,laps:1}));
+  assert.equal(await evaluate(el('drift-enabled')+'.checked'),false);
+  assert.equal(await evaluate(el('drift-radius')+'.disabled'),true);
   // Exercise the real drawing path and measure adjacent animation frames after warm-up.
   for(const size of [0,9,2000]) {
     if(!size)await click('clear-route');
@@ -223,7 +247,7 @@ try {
   }
   await click('disconnect');await waitText('state-label','未连接');
   assert.deepEqual(errors,[]);
-  console.log('PASS: captured pointers, history, wheel, drafts, camera, layouts, files, favorites and demo controls');
+  console.log('PASS: captured pointers, history, wheel, drafts, camera, layouts, files, favorites, GPS drift and demo controls');
 } finally {
   if(ws)ws.close();
   for(const child of children.reverse()){

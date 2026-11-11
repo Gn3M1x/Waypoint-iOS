@@ -8,8 +8,8 @@ import sys
 import time
 from contextlib import AsyncExitStack
 
-from route import Route, destination, number, point
-from motion import MotionSettings, SpeedProfile
+from route import Route, destination, distance, number, point
+from motion import DriftProfile, MotionSettings, SpeedProfile
 
 REQUIRED_PMD = "11.50.2"
 
@@ -154,6 +154,7 @@ class Engine:
         self.speed = 6.0
         self.motion = MotionSettings()
         self.profile = SpeedProfile(self.motion)
+        self.drift = None
         self.profile_time = 0.0
         self.elapsed_moving = 0.0
         self.last_tick = self.clock()
@@ -167,11 +168,14 @@ class Engine:
 
     def snapshot(self):
         current_speed = self.profile.speed_at(self.profile_time) if self.state == "moving" else 0.0
+        route_position = self.route.at(self.traveled) if self.route else None
+        drift_distance = distance(route_position, self.position) if route_position and self.position else 0.0
         return {"demo": self.demo, "state": self.state, "message": self.message,
                 "device": self.device, "connected": self.connected, "position": self.position,
                 "distance": round(self.traveled, 1), "total": round(self.route.length, 1) if self.route else 0,
                 "speed": self.speed, "logs": self.logs[:], "dependency": dependency_info(),
                 "motion": self.motion.as_dict(), "current_speed": round(current_speed, 3),
+                "route_position": route_position, "drift_distance": round(drift_distance, 3),
                 "current_pace_seconds": 3600/current_speed if current_speed else None,
                 "average_pace_seconds": 1000*self.elapsed_moving/self.traveled if self.traveled else None,
                 "elapsed_moving": round(self.elapsed_moving, 2),
@@ -244,6 +248,7 @@ class Engine:
             p = point(data.get("point"))
             await self._send(p)
             self.route = None
+            self.drift = None
             self.traveled = 0.0
             self.state = "holding"
             self.message = "坐标指令已发送，请在 iPhone 地图中确认位置是否移动。"
@@ -253,14 +258,17 @@ class Engine:
             settings = MotionSettings.parse(data["motion"] if "motion" in data else {"mode": "speed", "speed": data.get("speed", 6)})
             await self._send(route.points[0])
             self.route = route
-            self._set_motion(settings)
             self.traveled = 0.0
             self.elapsed_moving = 0.0
+            self.drift = DriftProfile(settings)
+            self._set_motion(settings)
             self.last_tick = self.clock()
             self.state = "moving"
             self.message = "正在按路线发送坐标。电脑上的进度代表已发送的路线进度。"
             label = f"目标配速 {settings.pace_seconds/60:g} 分/公里" if settings.mode == "pace" else f"{settings.speed:g} km/h"
             self.log(f"路线已开始：{route.length:.1f} 米，{label}" + (f"，平滑随机变速 ±{settings.variation_percent:g}%。" if settings.randomize else "。"))
+            if settings.drift_enabled:
+                self.log(f"步行随机偏移已开启：最大 {settings.drift_radius_meters:g} 米。")
         elif action == "pause":
             if self.state != "moving":
                 raise ValueError("当前没有正在移动的路线")
@@ -276,7 +284,7 @@ class Engine:
             self.state = "moving"
             self.message = "路线已继续。"
         elif action == "speed":
-            settings = MotionSettings.parse({"mode": "speed", "speed": data.get("speed")})
+            settings = MotionSettings.parse({**self.motion.as_dict(), "mode": "speed", "speed": data.get("speed")})
             # Settle elapsed movement at the previous speed before changing speed.
             if self.state == "moving":
                 await self._tick()
@@ -295,6 +303,7 @@ class Engine:
             bearing = number(data.get("bearing"), 0, 360, "方向")
             await self._send(destination(self.position, bearing, meters))
             self.route = None
+            self.drift = None
             self.traveled = 0.0
             self.state = "holding"
             self.message = "手动移动指令已发送。"
@@ -311,6 +320,8 @@ class Engine:
         return self.snapshot()
 
     def _set_motion(self, settings):
+        if self.drift:
+            self.drift.configure(settings, self.elapsed_moving)
         self.motion = settings
         self.speed = settings.speed
         self.profile = SpeedProfile(settings)
@@ -331,6 +342,7 @@ class Engine:
         self.dirty = False
         self.position = None
         self.route = None
+        self.drift = None
         self.traveled = 0.0
         self.elapsed_moving = 0.0
         self.profile_time = 0.0
@@ -351,7 +363,10 @@ class Engine:
                 advanced = self.route.length
             else:
                 advanced = self.traveled+increment
-            await self._send(self.route.at(advanced))
+            p = self.route.at(advanced)
+            if self.drift:
+                p = self.drift.position_at(p, self.elapsed_moving+duration, self.route.length-advanced)
+            await self._send(p)
             self.traveled = advanced
             self.profile_time += duration
             self.elapsed_moving += duration
