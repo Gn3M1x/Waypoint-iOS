@@ -33,6 +33,27 @@ python3 launch.py
 - GitHub 仓库保存源码；包含 Mac `.app` 启动器的完整压缩包放在 Releases。克隆源码后也可执行 `python3 launch.py` 启动，或 `python3 app.py --demo` 预览。
 - 运行 `python3 build_release.py` 可重新构建发行包。发行包使用明确的文件白名单，不包含 `.venv`、收藏数据库、日志和设备配对信息。
 
+## 开发与维护
+
+运行 `python3 app.py --demo` 打开本地演示，Windows 可用 `py -3 app.py --demo`。前端直接加载 `web/` 下的文件，修改后刷新浏览器即可看到效果。修改 Python 代码后重启演示服务。
+
+| 想改什么 | 从哪里入手 |
+| --- | --- |
+| 按钮位置、侧栏、窄窗口布局 | `web/index.html` 定义控件，`web/style.css` 定义布局和断点。 |
+| 模式切换、表单、收藏面板 | `web/app.js` 连接控件、编辑草稿和 API。 |
+| 地图拖动、缩放、路径点绘制 | `web/editor-map.mjs`，地图源及坐标换算见 `web/map-coordinates.mjs`。 |
+| 演示跑步动效 | `web/motion.mjs` 中的 `RunningMarker` 绘制屏幕动效，播放和暂停的页面验证在 `tests/browser/demo.mjs`。 |
+| 搜索与收藏存储 | `geocoder.py` 和 `favorites.py`，对应单元测试在 `tests/`。 |
+
+提交前可用一个命令检查改动，需要 Python 3.11+ 和 Node.js 22+。涉及页面交互时，加上 `--browser` 会继续运行独立 Chrome 演示测试。
+
+```sh
+python3 scripts/check.py
+python3 scripts/check.py --browser
+```
+
+Windows 可将 `python3` 换成 `py -3`。新增 Python 测试沿用 `tests/test_*.py`，前端单元测试沿用 `tests/test_*.mjs`，检查脚本会自动发现。新增浏览器模块时，同时登记到 `app.py` 的静态资源表和 `build_release.py` 的 `FILES`，再验证打包后的演示能正常打开。
+
 ## 路线与地图
 
 演示模式下，地图底部的“跑步动效”会让蓝点随行进方向轻微摆动。暂停会定格动效，到达终点后显示定位圆环。此开关只控制地图显示。
