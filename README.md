@@ -4,9 +4,9 @@
 
 USB 连接 iPhone，在电脑上搜索地名、选点、编辑并收藏地址和路线、按速度或配速播放、暂停继续、方向微调和恢复定位。界面运行在本机浏览器，程序必须保持运行。
 
-**当前分支：0.5.0 UI 测试版 1。重点测试新的操作流程，保留步行随机偏移功能。本版完成演示设备与浏览器回归，未做真实 iPhone 坐标注入验证。**
+**当前正式版：0.5.0。包含新的操作界面和步行随机偏移功能。已完成演示设备与浏览器回归，真实 iPhone 坐标注入效果和 Windows 实机仍待验证。**
 
-## UI 测试版 1
+## 0.5.0 新版操作界面
 
 - 底部主按钮随状态切换：连接设备 → 开始模拟 → 暂停 → 继续。到达终点后显示“结束并恢复定位”。
 - 侧栏随浏览、单点定位和路线模拟切换；连接成功后收起设备详情。空路线提供导入和收藏入口。
@@ -14,7 +14,7 @@ USB 连接 iPhone，在电脑上搜索地名、选点、编辑并收藏地址和
 - 蓝线表示正在执行的路线，绿色表示编辑草稿。修改或清空草稿不会中断执行，可重新载入执行路线，也可确认“从草稿重新开始”。
 - 底部持续显示状态、路线进度、当前配速和预计剩余时间。刷新页面会恢复后台正在执行的路线与设置；尚未开始的草稿不会自动保存，请导出或收藏。
 
-下载 [UI 测试版 1](https://github.com/Gn3M1x/Waypoint-iOS/releases/tag/ui-preview-1) 中的 `Waypoint-ui-preview-1.zip`。它是独立预发布版本，正式下载入口仍保留之前的步行随机偏移版。
+下载 [0.5.0 正式版](https://github.com/Gn3M1x/Waypoint-iOS/releases/tag/v0.5.0) 中的 [Waypoint-v0.5.0.zip](https://github.com/Gn3M1x/Waypoint-iOS/releases/download/v0.5.0/Waypoint-v0.5.0.zip)，完整解压后启动。也可通过 [Latest](https://github.com/Gn3M1x/Waypoint-iOS/releases/latest) 查看当前正式发行版。
 
 ## Mac 启动
 
@@ -39,9 +39,9 @@ python3 launch.py
 
 ## 版本与源码
 
-- 当前分支版本：0.5.0 UI 测试版 1。更新记录见 [CHANGELOG.md](CHANGELOG.md)，验证范围见 [TESTING.md](TESTING.md)。
+- 当前版本：0.5.0 正式版。更新记录见 [CHANGELOG.md](CHANGELOG.md)，验证范围见 [TESTING.md](TESTING.md)。
 - GitHub 仓库保存源码；包含 Mac `.app` 启动器的完整压缩包放在 Releases。克隆源码后也可执行 `python3 launch.py` 启动，或 `python3 app.py --demo` 预览。
-- 运行 `python3 build_release.py` 可重新构建 `Waypoint-ui-preview-1.zip`。发行包使用明确的文件白名单，不包含 `.venv`、收藏数据库、日志和设备配对信息。
+- 运行 `python3 build_release.py` 可重新构建 `Waypoint-v0.5.0.zip`。发行包使用明确的文件白名单，不包含 `.venv`、收藏数据库、日志和设备配对信息。
 
 ## 开发与维护
 

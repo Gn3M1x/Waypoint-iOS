@@ -12,7 +12,7 @@ FILES = ["app.py", "engine.py", "route.py", "motion.py", "geocoder.py", "favorit
 
 
 def main():
-    build = ROOT / "release" / "ui-preview-1"
+    build = ROOT / "release" / "v0.5.0"
     bundle = build / "Waypoint.app" / "Contents"
     resources = bundle / "Resources" / "ios-location-desk"
     resources.mkdir(parents=True, exist_ok=True)
@@ -27,11 +27,11 @@ def main():
     (resources / "start-mac.command").chmod(0o755)
     (resources / "preview.command").chmod(0o755)
     with (bundle / "Info.plist").open("wb") as file:
-        plistlib.dump({"CFBundleName": "Waypoint", "CFBundleDisplayName": "Waypoint UI 测试版 1",
+        plistlib.dump({"CFBundleName": "Waypoint", "CFBundleDisplayName": "Waypoint",
                       "CFBundleIdentifier": "local.waypoint.locationdesk", "CFBundleExecutable": "Waypoint",
                       "CFBundlePackageType": "APPL", "CFBundleShortVersionString": "0.5.0",
-                      "CFBundleVersion": "5.0b1", "LSMinimumSystemVersion": "12.0", "LSUIElement": True}, file)
-    archive = ROOT / "Waypoint-ui-preview-1.zip"
+                      "CFBundleVersion": "5.0", "LSMinimumSystemVersion": "12.0", "LSUIElement": True}, file)
+    archive = ROOT / "Waypoint-v0.5.0.zip"
     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as output:
         for name in FILES:
             output.write(ROOT / name, "ios-location-desk/" + name)
