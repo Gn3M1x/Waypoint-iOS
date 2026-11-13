@@ -79,6 +79,40 @@ class EngineTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.engine.dirty)
         self.assertEqual(self.engine.state, "ready")
 
+    async def test_active_route_snapshot_preserves_editor_geometry_and_is_isolated(self):
+        data={"points": [[38,114.5], [38,114.5], [38.001,114.5]], "closed": True, "laps": 2}
+        await self.engine.dispatch("route", data)
+        first=self.engine.route_snapshot()["route"]
+        self.assertEqual(first["points"], data["points"])
+        self.assertEqual(first["laps"], 2)
+        self.assertTrue(first["closed"])
+        self.assertEqual(self.engine.snapshot()["route_id"], first["id"])
+        self.assertNotIn("points", self.engine.snapshot())
+        data["points"][0][0]=0
+        first["points"][1][0]=0
+        self.assertEqual(self.engine.route_snapshot()["route"]["points"][0][0],38)
+        self.assertEqual(self.engine.route_snapshot()["route"]["points"][1][0],38)
+        await self.engine.dispatch("pause", {})
+        self.assertEqual(self.engine.route_snapshot()["route"]["id"],first["id"])
+        await self.engine.dispatch("route", {"points":[[0,0],[0,0.001]]})
+        self.assertGreater(self.engine.snapshot()["route_id"],first["id"])
+        await self.engine.dispatch("clear", {})
+        self.assertIsNone(self.engine.snapshot()["route_id"])
+        self.assertIsNone(self.engine.route_snapshot()["route"])
+
+    async def test_reported_drift_transition_freezes_during_pause(self):
+        await self.start_drifting()
+        self.time=2
+        await self.engine.dispatch("pause", {})
+        self.assertEqual(self.engine.snapshot()["drift_transition_remaining"],3)
+        self.time=100
+        await self.engine._tick()
+        self.assertEqual(self.engine.snapshot()["drift_transition_remaining"],3)
+        await self.engine.dispatch("resume", {})
+        self.time=104
+        await self.engine._tick()
+        self.assertEqual(self.engine.snapshot()["drift_transition_remaining"],0)
+
     async def test_pause_resume_does_not_advance_during_pause(self):
         await self.engine.dispatch("route", {"points": [[0, 0], [0, 0.01]], "speed": 3.6})
         self.time = 10

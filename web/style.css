@@ -154,3 +154,64 @@ pre { white-space:pre-wrap; max-height:170px; overflow:auto; font-size:11px }
 }
 @media (max-height:530px) and (max-width:760px) { main { grid-template-rows:auto minmax(0,1fr) 23% } #edit-hint { display:none } }
 @media (prefers-reduced-motion:reduce) { * { transition:none!important } }
+
+/* UI preview: keep the current task and the running simulation distinguishable. */
+main { grid-template-columns:320px minmax(0,1fr) }
+.preview-badge { display:inline-block; margin-left:8px; padding:2px 6px; border-radius:4px; font-size:10px; letter-spacing:0; color:#bbebd4; border:1px solid #5e8474 }
+#playback-state { font-size:12px; color:#d7e6df }
+#playback-state[data-state=moving] { color:#92edbd }
+#playback-state[data-state=paused] { color:#ffe4a0 }
+#playback-state[data-state=error] { color:#ffc4b1 }
+.task-guide { padding:16px 0; border-bottom:1px solid var(--line) }
+.task-guide > small { font-size:10px; font-weight:650; letter-spacing:.1em; color:var(--teal) }
+.task-guide h2 { margin:4px 0 6px; font-size:19px; letter-spacing:-.02em }
+.task-guide p { color:var(--muted); font-size:12px; line-height:1.65 }
+#browse-actions { margin-top:12px }
+.empty-route { border:1px dashed #b8cfc0; border-radius:8px; padding:10px; background:#f2f8f3 }
+.empty-route p { margin:0 0 9px; font-size:12px }
+.active-route-card { margin:14px 0 0; padding:12px; border:1px solid #bdcee6; background:#f1f6ff; border-radius:8px }
+.active-route-card strong { font-size:13px; color:#244d87 }
+#active-route-state { font-size:10px; color:#44648e }
+.active-route-card p { font-size:12px; color:#425e7f; margin-top:7px; overflow-wrap:anywhere }
+.active-route-card .row { margin-top:10px }
+.active-route-card button { padding:5px; font-size:11px }
+.setting-summary { line-height:1.6; padding:8px 10px; border-radius:7px; background:#edf4ed }
+.motion-change { border-radius:7px; padding:9px 10px; background:#f0f4f0; color:var(--muted) }
+.motion-change strong { font-size:12px; font-weight:600 }
+.motion-change.pending { background:#fff5df; border:1px solid #ebd5a4; color:#765417 }
+.motion-change.pending p { color:#765417 }
+.motion-change button { margin-top:9px }
+#motion-summary { color:#254f3c }
+.map-legend .active-line { width:17px; height:3px; background:#326bcb; margin-left:5px }
+.transport { gap:20px; padding:12px 20px; min-height:88px }
+.transport-info { flex:1; min-width:0; max-width:580px }
+.play-status { gap:8px; flex-wrap:wrap; font-variant-numeric:tabular-nums }
+.play-status strong { font-size:14px }
+#sent-distance { margin-left:auto; font-size:12px; color:var(--muted) }
+#transport-hint { font-size:11px; line-height:1.5; color:var(--muted); margin-top:5px; overflow-wrap:anywhere }
+#route-progress { display:block; width:100%; height:5px; margin-top:7px; appearance:none; border:0; border-radius:5px; overflow:hidden; background:#e4ece6 }
+#route-progress::-webkit-progress-bar { background:#e4ece6 }
+#route-progress::-webkit-progress-value { background:#148563 }
+#route-progress::-moz-progress-bar { background:#148563 }
+.play-actions .primary { min-width:115px }
+#restart-dialog { border:1px solid #c3d1c8; border-radius:12px; padding:24px; width:min(420px,calc(100% - 32px)); box-shadow:0 20px 80px #112d3d40; color:var(--ink) }
+#restart-dialog::backdrop { background:#14352d60 }
+#restart-dialog h2 { font-size:19px }
+#restart-dialog p { font-size:13px; line-height:1.7; margin-top:12px; color:var(--muted) }
+#restart-dialog .row { margin-top:20px }
+@media(max-width:1080px) { main { grid-template-columns:290px minmax(0,1fr) } .transport { gap:12px } .transport-info { max-width:none } }
+@media(max-width:760px) {
+  main { grid-template-columns:minmax(0,1fr) auto }
+  .preview-badge,.topbar h1,#playback-state { display:none }
+  .task-guide { padding:10px 0 }
+  .task-guide h2 { font-size:17px }
+  .transport { display:grid; grid-template-columns:1fr auto; padding:7px 10px; gap:7px }
+  .transport-info { grid-column:1/-1 }
+  .transport .play-actions { grid-column:2; margin-left:0 }
+  .play-status strong { font-size:12px }
+  #sent-distance { font-size:11px }
+  #transport-hint { font-size:10px; margin-top:3px }
+  #route-progress { margin-top:4px }
+  .play-actions .primary { min-width:92px }
+  #toast { bottom:130px }
+}

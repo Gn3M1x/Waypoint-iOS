@@ -192,6 +192,9 @@ export class EditorMap {
     }
   }
   fit(ps = this.events.scene().points) {
+    // Restoring an active route can happen before the first animation frame.
+    const width=this.canvas.clientWidth || this.width || 160;
+    const height=this.canvas.clientHeight || this.height || 210;
     if (!ps.length) ps = [this.events.scene().selected];
     const origin = this.world(ps[0])[0];
     let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
@@ -202,8 +205,8 @@ export class EditorMap {
       top = Math.min(top, y); bottom = Math.max(bottom, y);
     }
     this.center = unproject([(left + right) / 2, (top + bottom) / 2], this.source);
-    this.zoom = clamp(Math.log2(Math.min(Math.max(60, this.width - 100) / (right - left),
-      Math.max(60, this.height - 150) / (bottom - top)) / 256), 2, 19);
+    this.zoom = clamp(Math.log2(Math.min(Math.max(60, width - 100) / (right - left),
+      Math.max(60, height - 150) / (bottom - top)) / 256), 2, 19);
     this.draw(true);
   }
   setSource(source) {
@@ -325,8 +328,9 @@ export class EditorMap {
   }
   paintDraft(camera) {
     const ctx = this.ctx;
-    const {points, mode, selected, index, sent, closed} = this.events.scene();
+    const {points, mode, selected, index, sent, closed, activeRoute, draftChanged} = this.events.scene();
     ctx.clearRect(0, 0, this.width, this.height);
+    if (activeRoute) this.paintActiveRoute(activeRoute, camera);
     // Reuse the projected route and its Path2D while translating the camera.
     // Keep coordinates local to the first waypoint to preserve canvas precision.
     const sceneKey = this.routeCache;
@@ -348,10 +352,12 @@ export class EditorMap {
     const [offsetX, offsetY] = points.length ? this.screen(points[0],camera) : [0,0];
     ctx.save();
     ctx.translate(offsetX, offsetY);
-    if (positions.length > 1) {
+    if (positions.length > 1 && (!activeRoute || draftChanged || this.drag?.preview)) {
       ctx.lineJoin = ctx.lineCap = 'round';
       ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 7; ctx.stroke(path);
+      if(activeRoute)ctx.setLineDash([7,5]);
       ctx.strokeStyle = '#08795e'; ctx.lineWidth = 3.5; ctx.stroke(path);
+      ctx.setLineDash([]);
     }
     const occupied = new Set();
     positions.forEach(([x,y],i) => {
@@ -377,6 +383,24 @@ export class EditorMap {
       ctx.strokeStyle='#fff'; ctx.lineWidth=5; ctx.stroke();
       ctx.strokeStyle='#326bcb'; ctx.lineWidth=2.5; ctx.stroke();
     }
+  }
+  paintActiveRoute(route, camera) {
+    const ctx=this.ctx;
+    const old=this.activeRouteCache;
+    if(!old || old.route!==route || old.source!==this.source || old.zoom!==this.zoom) {
+      const origin=this.world(route.points[0]), path=new Path2D();
+      route.points.forEach((p,i)=>{
+        const [wx,wy]=this.world(p), dx=wx-origin[0];
+        const x=(dx-Math.round(dx))*this.scale, y=(wy-origin[1])*this.scale;
+        if(i)path.lineTo(x,y);else path.moveTo(x,y);
+      });
+      if(route.closed)path.closePath();
+      this.activeRouteCache={route,source:this.source,zoom:this.zoom,path};
+    }
+    ctx.save();ctx.translate(...this.screen(route.points[0],camera));
+    ctx.lineJoin=ctx.lineCap='round';
+    ctx.strokeStyle='#fff';ctx.lineWidth=8;ctx.stroke(this.activeRouteCache.path);
+    ctx.strokeStyle='#326bcb';ctx.lineWidth=4;ctx.stroke(this.activeRouteCache.path);ctx.restore();
   }
   pointMarker(x,y,i,count,active) {
     const first = i === 0, last = count > 1 && i === count-1;

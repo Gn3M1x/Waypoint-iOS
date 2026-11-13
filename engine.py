@@ -150,6 +150,8 @@ class Engine:
         self.position = None
         self.dirty = False
         self.route = None
+        self.route_serial = 0
+        self.route_document = None
         self.traveled = 0.0
         self.speed = 6.0
         self.motion = MotionSettings()
@@ -176,10 +178,21 @@ class Engine:
                 "speed": self.speed, "logs": self.logs[:], "dependency": dependency_info(),
                 "motion": self.motion.as_dict(), "current_speed": round(current_speed, 3),
                 "route_position": route_position, "drift_distance": round(drift_distance, 3),
+                "route_id": self.route_serial if self.route else None,
+                "drift_transition_remaining": round(max(0, self.drift.changed_at + self.drift.TRANSITION_SECONDS - self.elapsed_moving), 1)
+                if self.route and self.drift and self.drift.start_radius != self.drift.target_radius else 0,
                 "current_pace_seconds": 3600/current_speed if current_speed else None,
                 "average_pace_seconds": 1000*self.elapsed_moving/self.traveled if self.traveled else None,
                 "elapsed_moving": round(self.elapsed_moving, 2),
                 "recovery_needed": self.dirty, "platform": platform.system()}
+
+    def route_snapshot(self):
+        # Fetch geometry only when the route changes; keep 1 Hz status compact.
+        if not self.route:
+            return {"route": None}
+        return {"route": {"id": self.route_serial,
+                          "points": [list(p) for p in self.route_document["points"]],
+                          "closed": self.route_document["closed"], "laps": self.route.laps}}
 
     async def start(self):
         self.ticker = asyncio.create_task(self._run())
@@ -258,6 +271,8 @@ class Engine:
             settings = MotionSettings.parse(data["motion"] if "motion" in data else {"mode": "speed", "speed": data.get("speed", 6)})
             await self._send(route.points[0])
             self.route = route
+            self.route_serial += 1
+            self.route_document = {"points": [point(p) for p in data["points"]], "closed": data.get("closed", False)}
             self.traveled = 0.0
             self.elapsed_moving = 0.0
             self.drift = DriftProfile(settings)

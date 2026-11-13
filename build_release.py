@@ -8,11 +8,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 FILES = ["app.py", "engine.py", "route.py", "motion.py", "geocoder.py", "favorites.py", "launch.py", "requirements.txt", "README.md", "TESTING.md", "CHANGELOG.md", "LICENSE",
          "start-mac.command", "preview.command", "start-windows.bat", "build_release.py", "scripts/check.py",
-         "web/index.html", "web/app.js", "web/map-coordinates.mjs", "web/motion.mjs", "web/editor-map.mjs", "web/style.css", "tests/test_editor_map.mjs", "tests/browser/demo.mjs", "tests/test_engine.py", "tests/test_favorites.py", "tests/test_map_coordinates.mjs", "tests/test_motion.py", "tests/test_geocoder.py", "tests/test_motion_ui.mjs", "THIRD_PARTY_NOTICES.md"]
+         "web/index.html", "web/app.js", "web/workspace.mjs", "tests/test_workspace.mjs", "tests/test_http.py", "web/map-coordinates.mjs", "web/motion.mjs", "web/editor-map.mjs", "web/style.css", "tests/test_editor_map.mjs", "tests/browser/demo.mjs", "tests/browser/ui_preview.py", "tests/test_engine.py", "tests/test_favorites.py", "tests/test_map_coordinates.mjs", "tests/test_motion.py", "tests/test_geocoder.py", "tests/test_motion_ui.mjs", "THIRD_PARTY_NOTICES.md"]
 
 
 def main():
-    build = ROOT / "release"
+    build = ROOT / "release" / "ui-preview-1"
     bundle = build / "Waypoint.app" / "Contents"
     resources = bundle / "Resources" / "ios-location-desk"
     resources.mkdir(parents=True, exist_ok=True)
@@ -27,11 +27,11 @@ def main():
     (resources / "start-mac.command").chmod(0o755)
     (resources / "preview.command").chmod(0o755)
     with (bundle / "Info.plist").open("wb") as file:
-        plistlib.dump({"CFBundleName": "Waypoint", "CFBundleDisplayName": "Waypoint 定位控制台",
+        plistlib.dump({"CFBundleName": "Waypoint", "CFBundleDisplayName": "Waypoint UI 测试版 1",
                       "CFBundleIdentifier": "local.waypoint.locationdesk", "CFBundleExecutable": "Waypoint",
-                      "CFBundlePackageType": "APPL", "CFBundleShortVersionString": "0.4.0",
-                      "CFBundleVersion": "4", "LSMinimumSystemVersion": "12.0", "LSUIElement": True}, file)
-    archive = ROOT / "Waypoint-0.4.zip"
+                      "CFBundlePackageType": "APPL", "CFBundleShortVersionString": "0.5.0",
+                      "CFBundleVersion": "5.0b1", "LSMinimumSystemVersion": "12.0", "LSUIElement": True}, file)
+    archive = ROOT / "Waypoint-ui-preview-1.zip"
     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as output:
         for name in FILES:
             output.write(ROOT / name, "ios-location-desk/" + name)

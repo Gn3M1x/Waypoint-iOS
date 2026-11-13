@@ -61,3 +61,12 @@ test('history restores selection and discards redo after a new edit',()=>{
   history.record(first);assert.equal(history.step(second,true),null);
   history.reset();assert.equal(history.step(first),null);
 });
+
+test('restoring a route before the first paint uses live canvas dimensions',()=>{
+  const {m}=fixture();
+  m.width=m.height=undefined;
+  m.canvas.clientWidth=900;m.canvas.clientHeight=600;
+  m.fit([[38,114.52],[38.001,114.521]]);
+  assert.ok(Number.isFinite(m.zoom) && m.zoom>=2 && m.zoom<=19);
+  assert.ok(m.center.every(Number.isFinite));
+});

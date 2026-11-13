@@ -2,6 +2,7 @@
 import {fromMapCoordinate} from './map-coordinates.mjs';
 import {EditorMap, History} from './editor-map.mjs';
 import {normaliseMotion, formatPace, RunningMarker} from './motion.mjs';
+import {motionKey, motionSummary, motionChanges, sameGeometry, durationLabel, primaryControl} from './workspace.mjs';
 const $ = id => document.getElementById(id);
 const TOKEN_KEY = 'waypoint-token';
 const fromFragment = new URLSearchParams(location.hash.slice(1)).get('token');
@@ -9,6 +10,8 @@ if (fromFragment) { sessionStorage.setItem(TOKEN_KEY, fromFragment); history.rep
 const token = fromFragment || sessionStorage.getItem(TOKEN_KEY) || '';
 let points = [], selected = [38.0, 114.52], mode = 'browse', status = null, busy = false, exiting = false;
 let activeAction=null, pollGeneration=0;
+let online=true, activeRoute=null, activeRequest=null, editorTouched=false, initialHydration=true, appliedMotion=null, restartPayload=null;
+let geometryComparison=null;
 let motionMode='pace', searchBusy=false, searchGeneration=0;
 let selectedLabel='', favoriteKind='address', favoriteTrash=false, favoriteItems=[], favoritePending=null, favoriteBusy=false, favoriteGeneration=0, previousDraft=null;
 const edits = new History();
@@ -31,35 +34,115 @@ async function api(action, body) {
 async function act(action, body = {}) {
   if (busy || exiting) return null;
   busy = true; activeAction=action; ++pollGeneration; renderControls();
-  try { const result = await api(action, body); if (action === 'route') runner.stop(); if (result.state) renderStatus(result); return result; }
+  try { const result = await api(action, body); if (action === 'route') {runner.stop(); appliedMotion=null;}
+    if (action === 'motion') appliedMotion={routeId:result.route_id,key:motionKey(result.motion)}; if (result.state) renderStatus(result); return result; }
   catch (error) { toast(error.message); return null; }
   finally { activeAction=null; busy=false; await poll(); renderControls(); }
 }
+function draftGeometry() {
+  return {points, closed:$('closed').checked, laps:$('closed').checked?Number($('laps').value):1};
+}
+function draftMatchesActive() {
+  const d=draftGeometry(), old=geometryComparison;
+  if(!old || old.active!==activeRoute || old.points!==points || old.closed!==d.closed || old.laps!==d.laps)
+    geometryComparison={active:activeRoute,...d,matches:sameGeometry(activeRoute,d)};
+  return geometryComparison.matches;
+}
+function draftMotion() { try {return readMotionUI();} catch {return null;} }
+function validDraft() {
+  const d=draftGeometry();
+  return points.length>=2 && routeLength()>=1 && Number.isInteger(d.laps) && d.laps>=1 && d.laps<=100 && !!draftMotion();
+}
+function control() {
+  let validPoint=false; try {inputPoint();validPoint=true;} catch {}
+  return primaryControl(status,mode,{online,hasDevice:!!$('devices').value,validRoute:validDraft(),validPoint});
+}
 function renderControls() {
-  const connected = Boolean(status?.connected), state = status?.state;
-  for (const id of ['connect','refresh','disconnect','apply','pause','restore','north','south','east','west','exit','apply-motion']) $(id).disabled = busy || exiting;
-  $('refresh').textContent = activeAction === 'devices' ? '…' : '↻';
-  $('apply-motion').disabled ||= !connected;
-  $('connect').disabled ||= !($('devices').value) || (connected && state !== 'error');
+  const connected=Boolean(status?.connected), state=status?.state, disabled=busy||exiting||!online;
+  for (const id of ['connect','refresh','disconnect','apply','restore','north','south','east','west','exit','apply-motion','restart-route','load-active-route']) $(id).disabled=disabled;
+  $('refresh').disabled=busy||exiting;
+  $('refresh').textContent=activeAction==='devices'?'…':'↻';
+  $('connect').disabled ||= !$('devices').value || (connected && state!=='error');
   $('disconnect').disabled ||= !connected;
-  $('apply').disabled ||= !connected || mode === 'browse' || (mode === 'route' && points.length < 2);
-  $('pause').disabled ||= !['moving','paused'].includes(state);
+  $('apply').disabled ||= !control().action;
+  $('apply').textContent=exiting?'已退出':busy?({connect:'正在连接…',route:'正在开始…',clear:'正在恢复…'}[activeAction]||'处理中…'):control().label;
+  $('restore').hidden=!status?.recovery_needed || control().action==='clear';
   $('restore').disabled ||= !connected;
-  for (const id of ['north','south','east','west']) $(id).disabled ||= !connected || !status?.position;
-  $('apply').textContent = mode === 'route' ? '开始路线移动' : '应用编辑位置';
-  $('pause').textContent = state === 'paused' ? '继续' : '暂停';
-  $('connect').textContent = activeAction === 'connect' ? '正在连接…' : state === 'error' && connected ? '重新连接' : connected ? '已连接' : '准备并连接';
-  $('undo').disabled = mode !== 'route' || !edits.past.length;
-  $('redo').disabled = mode !== 'route' || !edits.future.length;
-  $('delete-point').disabled = mode !== 'route' || index < 0;
-  $('clear-route').disabled = mode !== 'route' || !points.length;
-  $('export').disabled = points.length < 2;
-  $('laps').disabled = !$('closed').checked;
-  $('save-route-favorite').disabled = points.length<2;
+  for (const id of ['north','south','east','west']) $(id).disabled ||= !connected||!status?.position;
+  $('connect').textContent=activeAction==='connect'?'正在连接…':state==='error'?'重新连接':connected?'已连接':'准备并连接';
+  $('undo').disabled=mode!=='route'||!edits.past.length;
+  $('redo').disabled=mode!=='route'||!edits.future.length;
+  $('delete-point').disabled=mode!=='route'||index<0;
+  $('clear-route').disabled=mode!=='route'||!points.length;
+  $('export').disabled=points.length<2;
+  $('laps').disabled=!$('closed').checked;
+  $('save-route-favorite').disabled=points.length<2;
+  $('restart-route').disabled ||= !connected || !validDraft() || !status?.route_id || state==='error';
+  $('load-active-route').disabled ||= !activeRoute;
+  renderWorkspace();
+}
+function renderWorkspace() {
+  const s=status, current=draftMotion(), hasRoute=!!s?.route_id;
+  const editableRoute=hasRoute && ['moving','paused'].includes(s.state);
+  const dirty=editableRoute && current && motionKey(current)!==motionKey(s.motion);
+  $('route-section').hidden=mode!=='route';
+  $('point-section').hidden=mode!=='point';
+  $('coordinate-section').hidden=mode==='browse';
+  $('motion-section').hidden=mode!=='route';
+  $('browse-actions').hidden=mode!=='browse';
+  $('route-empty').hidden=points.length>0;
+  $('active-route-card').hidden=!hasRoute;
+  $('active-legend').hidden=$('active-legend-label').hidden=!activeRoute;
+  $('active-route-state').textContent=s?names[s.state]:'';
+  $('active-motion-summary').textContent=hasRoute?motionSummary(s.motion):'';
+  $('draft-notice').textContent=!activeRoute?'正在同步执行路线…':draftMatchesActive()?'草稿与执行路线一致。':'草稿已修改，下次开始时生效。蓝线仍是正在执行的路线。';
+  $('selected-summary').textContent=selectedLabel || selected.map(n=>n.toFixed(6)).join(', ');
+  $('motion-summary').textContent=current?motionSummary(current):'请检查移动参数';
+  $('motion-change').classList.toggle('pending',!!dirty);
+  $('motion-change-title').textContent=!current?'设置需要检查':dirty?'有未应用的设置':editableRoute?'设置已同步':'开始时自动应用';
+  let detail=!current?'请填写有效的速度、配速和偏移参数。':dirty?motionChanges(s.motion,current):editableRoute?'当前面板设置与执行设置一致。':'当前设置将随路线开始一起应用。';
+  if(!dirty && editableRoute && appliedMotion?.routeId===s.route_id && appliedMotion.key===motionKey(s.motion)) {
+    $('motion-change-title').textContent='设置已应用';
+    detail=s.drift_transition_remaining>0?`偏移正在平滑过渡，剩余 ${s.drift_transition_remaining.toFixed(1)} 秒移动时间${s.state==='paused'?'，继续后推进':''}。`:'执行中的路线已使用新设置。';
+  }
+  $('motion-change-detail').textContent=detail;
+  $('apply-motion').hidden=!dirty;
+  $('apply-motion').disabled ||= !current||!dirty||!['moving','paused'].includes(s?.state);
+  $('task-step').textContent=!s?.connected?'01 · 连接设备':mode==='route'?'02 · 准备路线':mode==='point'?'02 · 选择位置':'02 · 选择操作';
+  $('task-title').textContent=mode==='route'?(points.length?'调整你的路线':'从一个起点开始'):mode==='point'?'选好位置，再应用':'你想怎样模拟位置？';
+  $('task-description').textContent=mode==='route'?(points.length?`${points.length} 个路径点 · ${$('route-distance').textContent} · 预计 ${$('route-time').textContent}`:'点击地图添加路径点，也可以导入或载入收藏。'):mode==='point'?'点击地图选点，或用右上角搜索找到地点。':'单点定位保持一个位置；路线模拟沿路径连续移动。';
+  const title=exiting?'程序已退出':!online?'控制台离线':hasRoute?(s.state==='holding'?'路线已完成':names[s.state]):s?.state==='holding'?'正在保持位置':s?.connected?'已准备就绪':'等待连接';
+  $('transport-title').textContent=title;
+  $('playback-state').textContent=title;
+  $('playback-state').dataset.state=online?s?.state||'disconnected':'error';
+  $('transport-hint').textContent=exiting?'已结束模拟，可以关闭窗口。':!online||s?.state==='error'?control().hint:dirty?'移动设置已修改，点击侧栏“应用更改”后生效。':control().hint;
+  $('route-progress').hidden=!hasRoute;
+  $('route-progress').value=hasRoute&&s.total?Math.min(100,s.distance/s.total*100):0;
+  $('sent-distance').textContent=hasRoute?`${s.distance.toFixed(1)} / ${s.total.toFixed(1)} 米`:'';
+  if(!exiting && online && hasRoute && s.state==='moving' && !dirty) $('transport-hint').textContent=`预计剩余 ${durationLabel(Math.max(0,s.total-s.distance)/(s.speed/3.6))} · 偏移 ${(s.drift_distance??0).toFixed(2)} 米`;
+}
+async function syncActiveRoute(s) {
+  if(!s.route_id) {activeRoute=null;initialHydration=false;map.draw();return;}
+  if(activeRoute?.id===s.route_id || activeRequest===s.route_id)return;
+  const id=s.route_id;activeRequest=id;
+  try {
+    const result=await api('active-route');
+    if(status?.route_id!==id || result.route?.id!==id)return;
+    activeRoute=result.route;
+    if(initialHydration && !editorTouched) {
+      installRouteDocument({version:1,coordinateSystem:'WGS84',...activeRoute,motion:status.motion});
+    }
+    initialHydration=false;renderControls();map.draw();
+  } catch { $('draft-notice').textContent='执行路线同步失败，将自动重试。'; }
+  finally {if(activeRequest===id)activeRequest=null;}
 }
 function renderStatus(s) {
   const moved = String(status?.position ?? '') !== String(s.position ?? '');
-  status = s;
+  const wasConnected=status?.connected;
+  status = s; online=true;
+  if(!wasConnected && s.connected) $('device-section').open=false;
+  if(s.state==='error') $('device-section').open=true;
+  $('device-heading').textContent=s.connected?(s.demo?'演示设备已连接':'iPhone 已连接'):'连接设备';
   $('sent-position').textContent = s.position ? s.position.map(v=>v.toFixed(5)).join(', ') : '尚未发送';
   document.body.classList.toggle('demo-mode',s.demo);
   document.querySelector('.compatibility').textContent = s.device ? 'iOS '+s.device.ios+' · 定位效果待确认' : 'iPhone · 定位效果待验证';
@@ -72,7 +155,6 @@ function renderStatus(s) {
   $('status-text').textContent = s.message;
   $('status-dot').className = 'status-dot' + (s.state === 'error' ? ' error' : s.connected ? ' ok' : '');
   $('device-info').textContent = s.device ? `${s.device.name} · iOS ${s.device.ios}` : !s.dependency.available && !s.demo ? '定位组件未安装。请通过附带的启动程序安装。' : '实际定位效果需在手机地图中确认。';
-  $('sent-distance').replaceChildren(document.createTextNode(s.distance.toFixed(1) + ' '), Object.assign(document.createElement('small'),{textContent:'米'}));
   $('logs').textContent = s.logs.map(l => `[${l.time}] ${l.text}`).join('\n') || '尚无记录。';
   $('log-count').textContent = s.logs.length;
   const current=s.current_pace_seconds;
@@ -81,7 +163,9 @@ function renderStatus(s) {
   $('drift-status').textContent = s.route_position
     ? `已发送偏移 ${(s.drift_distance??0).toFixed(2)} 米 · ${s.state==='paused'?'已冻结':s.state==='holding'?'已到终点':s.motion.drift_enabled?'已启用':s.drift_distance>0?'收回中':'已关闭'}（相对理想路线）`
     : '开始路线后显示已发送偏移。';
+  if(activeRoute?.id!==s.route_id)activeRoute=null;
   renderControls(); if (moved) map.draw();
+  syncActiveRoute(s);
 }
 async function poll() {
   if (exiting || busy) return;
@@ -90,7 +174,7 @@ async function poll() {
     const snapshot = await api('status');
     if (generation === pollGeneration && !exiting) renderStatus(snapshot);
   }
-  catch (e) { if(generation !== pollGeneration)return; runner.stop(); $('runner-option').hidden=true; $('connection-pill').textContent='控制台离线'; $('status-text').textContent = token ? '无法连接本机控制程序。请确认启动窗口仍在运行。' : '请通过附带的启动程序打开控制台。'; }
+  catch (e) { if(generation !== pollGeneration)return; runner.stop(); $('runner-option').hidden=true; online=false;renderControls();$('connection-pill').textContent='控制台离线'; $('status-text').textContent = token ? '无法连接本机控制程序。请确认启动窗口仍在运行。' : '请通过附带的启动程序打开控制台。'; }
 }
 function setCoordinates(p, label = '') {
   selected = p;
@@ -109,6 +193,7 @@ function forgetLoad() {
   $('favorites-undo-load').hidden = true;
 }
 function replaceGeometry(next, active) {
+  editorTouched=true;
   edits.record(geometry());
   forgetLoad();
   points = next;
@@ -126,6 +211,7 @@ function travelHistory(redo) {
   updateRoute();
 }
 function selectPoint(p) {
+  editorTouched=true;
   if (mode === 'browse') return;
   if (mode === 'route') {
     if (points.length >= 2000) return toast('每条路线最多 2000 个路径点。');
@@ -145,6 +231,7 @@ function setMode(next) {
     button.setAttribute('aria-pressed', String(key === mode));
   }
   $('map').dataset.mode = mode;
+  document.body.dataset.mode=mode;
   $('edit-hint').textContent = {browse:'拖动平移，缩放可查看街道细节。', point:'点击地图选址，确认后应用编辑位置。',route:'点击空白处加点，拖动节点调整路线。'}[mode];
   $('locate').textContent = mode === 'route' ? '按坐标添加路径点' : '查看坐标位置';
   updateRoute();
@@ -178,16 +265,16 @@ function updateRoute() {
   try {seconds=meters/(readMotionUI().speed/3.6);} catch {}
   $('route-distance').replaceChildren(document.createTextNode(meters.toFixed(1)+' '),Object.assign(document.createElement('small'),{textContent:'米'}));
   $('route-time').textContent=meters&&seconds!==null ? `${Math.floor(Math.round(seconds)/60)}:${String(Math.round(seconds)%60).padStart(2,'0')}` : '—';
-  $('speed-label').textContent=$('speed').value+' km/h';
+  $('speed-label').textContent=Number(Number($('speed').value).toFixed(2))+' km/h';
   $('variation-label').textContent=`±${$('pace-variation').value}%`;
   $('pace-variation').disabled=!$('pace-random').checked;
-  $('drift-radius-label').textContent=`${$('drift-radius').value} 米`;
+  $('drift-radius-label').textContent=`${Number(Number($('drift-radius').value).toFixed(2))} 米`;
   $('drift-radius').disabled=!$('drift-enabled').checked;
   renderControls(); map.draw();
 }
 
 const map = new EditorMap($('map'), $('basemap'), {
-  scene: () => ({points, mode, selected, index: mode === 'route' ? index : -1, sent:status?.position, closed:$('closed').checked}),
+  scene: () => ({points, mode, selected, index: mode === 'route' ? index : -1, sent:status?.position, closed:$('closed').checked, activeRoute, draftChanged:!draftMatchesActive()}),
   select(i) { index = i; setCoordinates(points[i]); updateRoute(); },
   move(i, p) { const next = points.slice(); next[i] = p; replaceGeometry(next, i); },
   pick: selectPoint,
@@ -287,6 +374,7 @@ function openFavoriteForm(pending,name,preview) {
   $('favorite-name').focus();refreshFavorites();
 }
 async function loadFavorite(item) {
+  editorTouched=true;
   try{
     const data=await api('favorites/item?id='+encodeURIComponent(item.id));const value=data.favorite;
     if(value.deleted)throw Error('该收藏已在回收站中，请先恢复。');
@@ -294,7 +382,7 @@ async function loadFavorite(item) {
     if(value.kind==='route')installRouteDocument(value.payload);
     else{selected=[...value.payload.point];selectedLabel=value.name;$('lat').value=selected[0].toFixed(6);$('lon').value=selected[1].toFixed(6);setMode('point');map.center=[...selected];map.zoom=value.payload.zoom;map.draw();}
     previousDraft=draft;$('favorites-undo-load').hidden=false;
-    cancelFavoriteForm();$('favorites-notice').textContent=`已载入“${value.name}”${value.kind==='route'?'及其配速、随机变速、偏移和圈数。点击“开始路线移动”即可播放。':'，可继续编辑。'}`;
+    cancelFavoriteForm();$('favorites-notice').textContent=`已载入“${value.name}”${value.kind==='route'?'及其移动设置。'+(status?.route_id?'草稿已更新，当前执行路线保持不变。':'点击“开始模拟”即可播放。'):'，可继续编辑。'}`;
   }catch(e){toast(e.message);}
 }
 async function changeFavorite(action,item) {
@@ -312,10 +400,11 @@ $('favorites-trash').onchange=e=>{cancelFavoriteForm();favoriteTrash=e.target.ch
 $('favorite-cancel').onclick=cancelFavoriteForm;
 $('favorites-undo-load').onclick=()=>{if(previousDraft){restoreEditor(previousDraft);previousDraft=null;$('favorites-undo-load').hidden=true;$('favorites-notice').textContent='已恢复载入前的编辑内容。';}};
 for(const id of ['lat','lon'])$(id).addEventListener('input',()=>{
+  editorTouched=true;
   selectedLabel='';
   if(mode==='route') {index=-1; $('selection-label').textContent='编辑位置'; renderControls();}
   if(mode==='point') {try {selected=inputPoint();} catch {}}
-  map.draw();
+  renderControls();map.draw();
 });
 $('save-address-favorite').onclick=()=>{
   try{const p=inputPoint();openFavoriteForm({action:'save',kind:'address',payload:{version:1,coordinateSystem:'WGS84',point:p,zoom:Math.round(map.zoom)}},selectedLabel||`地址 ${p[0].toFixed(5)}, ${p[1].toFixed(5)}`,`将保存 ${p[0].toFixed(6)}, ${p[1].toFixed(6)}（WGS84）。`);}catch(e){toast(e.message);}
@@ -333,8 +422,12 @@ $('favorite-name-form').onsubmit=async e=>{
   }catch(e){$('favorites-notice').textContent=e.message;}
   finally{favoriteBusy=false;$('favorite-submit').disabled=false;}
 };
-$('motion-speed').onclick=()=>setMotionMode('speed');$('motion-pace').onclick=()=>setMotionMode('pace');
-for(const id of ['pace-minutes','pace-seconds','pace-random','pace-variation','drift-enabled','drift-radius'])$(id).addEventListener('input',updateRoute);
+$('motion-speed').onclick=()=>{editorTouched=true;setMotionMode('speed');};$('motion-pace').onclick=()=>{editorTouched=true;setMotionMode('pace');};
+for(const id of ['pace-minutes','pace-seconds','pace-random','pace-variation','drift-enabled','drift-radius'])$(id).addEventListener('input',()=>{
+  // Preserve imported precision until the user actually moves a slider.
+  if(id==='drift-radius')$(id).value=String(Math.round(Number($(id).value)*10)/10);
+  editorTouched=true;updateRoute();
+});
 $('apply-motion').onclick=()=>{try{act('motion',readMotionUI());}catch(e){toast(e.message);}};
 $('map-source').onchange=e=>map.setSource(e.target.value);
 $('retry-tiles').onclick=()=>map.retryTiles();
@@ -401,7 +494,7 @@ $('delete-point').onclick=()=>{
 };
 window.addEventListener('keydown', e=>{
   if(e.key==='Escape'){map.cancel();closeSearch();$('favorites-panel').hidden=true;return;}
-  if(mode!=='route'||e.target.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"])'))return;
+  if($('restart-dialog').open||mode!=='route'||e.target.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"])'))return;
   const modifier=e.ctrlKey||e.metaKey, key=e.key.toLowerCase();
   if(modifier && (key==='z'||key==='y')){
     e.preventDefault(); travelHistory(key==='y'||e.shiftKey);
@@ -409,14 +502,35 @@ window.addEventListener('keydown', e=>{
     e.preventDefault(); $('delete-point').click();
   }
 });
-$('apply').onclick=()=>{try{if(mode==='point'){const p=inputPoint();act('set',{point:p});}else act('route',{points,motion:readMotionUI(),closed:$('closed').checked,laps:$('closed').checked?Number($('laps').value):1});}catch(e){toast(e.message);}};
-$('pause').onclick=()=>act(status?.state==='paused'?'resume':'pause');$('restore').onclick=()=>act('clear');
-$('speed').oninput=updateRoute;
-$('closed').onchange=updateRoute;$('laps').oninput=updateRoute;
+$('apply').onclick=()=>{
+  const action=control().action;
+  try {
+    if(action==='edit-route')return setMode('route');
+    if(action==='connect')return $('connect').click();
+    if(action==='route')return act('route',routeDocument());
+    if(action==='set')return act('set',{point:inputPoint()});
+    if(action)act(action);
+  } catch(e){toast(e.message);}
+};
+$('restore').onclick=()=>act('clear');
+$('speed').oninput=()=>{$('speed').value=String(Math.round(Number($('speed').value)*10)/10);editorTouched=true;updateRoute();};
+$('closed').onchange=()=>{editorTouched=true;updateRoute();};$('laps').oninput=()=>{editorTouched=true;updateRoute();};
+$('quick-point').onclick=()=>setMode('point');$('quick-route').onclick=()=>setMode('route');
+$('empty-import').onclick=()=>$('import').click();
+$('empty-favorites').onclick=()=>{cancelFavoriteForm();showFavorites('route');};
+$('load-active-route').onclick=()=>{if(activeRoute){editorTouched=true;installRouteDocument({version:1,coordinateSystem:'WGS84',...activeRoute,motion:status.motion});}};
+$('restart-route').onclick=()=>{
+  try {restartPayload=routeDocument();$('restart-summary').textContent=`${points.length} 个路径点 · ${$('route-distance').textContent} · ${motionSummary(restartPayload.motion)}`;$('restart-dialog').showModal();}
+  catch(e){toast(e.message);}
+};
+$('cancel-restart').onclick=()=>$('restart-dialog').close();
+$('confirm-restart').onclick=()=>{const payload=restartPayload;$('restart-dialog').close();if(payload)act('route',payload);};
+$('restart-dialog').addEventListener('close',()=>{restartPayload=null;});
 for(const[id,bearing]of[['north',0],['east',90],['south',180],['west',270]])$(id).onclick=()=>act('nudge',{bearing,meters:10});
 $('zoom-in').onclick=()=>map.zoomAt(map.zoom+1);$('zoom-out').onclick=()=>map.zoomAt(map.zoom-1);$('fit').onclick=()=>map.fit();
 $('import').onclick=()=>$('route-file').click();
 $('route-file').onchange=async e=>{
+  editorTouched=true;
   try{
     const file=e.target.files[0];if(!file)return;
     if(file.size>1000000)throw Error('路线文件不能超过 1 MB');
@@ -453,6 +567,6 @@ $('export').onclick=()=>{
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='waypoint-route.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   }catch(error){toast(error.message);}
 };
-$('exit').onclick=async()=>{if(busy)return;busy=true;renderControls();try{await api('exit',{});exiting=true;runner.stop();$('runner-option').hidden=true;$('status-title').textContent='程序已退出';$('status-text').textContent='停止模拟指令已发送。可关闭这个页面和启动窗口。';$('connection-pill').textContent='已退出';$('connection-pill').classList.remove('connected');}catch(error){toast('退出未完成：'+error.message);}finally{busy=false;renderControls();}};
+$('exit').onclick=async()=>{if(busy)return;busy=true;renderControls();try{await api('exit',{});exiting=true;renderStatus({...status,state:'disconnected',connected:false,recovery_needed:false,position:null,route_id:null,total:0,distance:0});runner.stop();$('runner-option').hidden=true;$('status-title').textContent='程序已退出';$('status-text').textContent='停止模拟指令已发送。可关闭这个页面和启动窗口。';$('connection-pill').textContent='已退出';$('connection-pill').classList.remove('connected');}catch(error){toast('退出未完成：'+error.message);}finally{busy=false;renderControls();}};
 window.addEventListener('beforeunload',e=>{if(status?.recovery_needed&&!exiting){e.preventDefault();e.returnValue='';}});
 setMode('browse'); $('refresh').click(); setInterval(poll,1000);

@@ -7,8 +7,8 @@
 <body>
 <header class="topbar">
   <div class="brand"><span class="brand-icon" aria-hidden="true">➤</span>Waypoint</div>
-  <h1>定位工作台</h1>
-  <div class="top-actions"><span id="connection-pill">未连接</span><button id="exit">恢复并退出</button></div>
+  <h1>定位工作台 <span class="preview-badge">UI 测试版 1</span></h1>
+  <div class="top-actions"><span id="connection-pill">未连接</span><span id="playback-state">准备开始</span><button id="exit">恢复并退出</button></div>
 </header>
 <main>
   <div class="mode-bar"><div class="segmented modes" role="group" aria-label="地图操作模式"><button id="mode-browse">浏览</button><button id="mode-point">单点定位</button><button id="mode-route">路线模拟</button></div></div>
@@ -17,26 +17,37 @@
     <div class="tools"><button id="open-search">⌕ 搜索</button><button id="open-favorites">☆ 收藏夹</button></div>
   </div>
   <aside class="sidebar" aria-label="设备与编辑器">
-    <details class="device section" open><summary>连接设备 <span id="state-label">未连接</span></summary>
+    <details class="device section" id="device-section" open><summary><span id="device-heading">连接设备</span><span id="state-label">未连接</span></summary>
       <div class="device-picker"><select id="devices" aria-label="USB 设备"><option value="">正在查找设备…</option></select><button id="refresh" title="刷新 USB 设备" aria-label="刷新 USB 设备">↻</button></div>
       <div class="row"><button id="connect" disabled class="tint">准备并连接</button><button id="disconnect" disabled>断开</button></div>
       <details class="minor"><summary>连接选项</summary><label class="check"><input type="checkbox" id="native">Mac 原生连接方式</label>
         <p id="device-info"></p><p class="compatibility"></p></details>
     </details>
-    <section class="section draft">
+    <section id="task-guide" class="task-guide">
+      <small id="task-step">准备开始</small><h2 id="task-title">选择你要做的事</h2><p id="task-description">在地图上选一个位置，或绘制一条移动路线。</p>
+      <div id="browse-actions" class="row"><button id="quick-point">单点定位</button><button id="quick-route" class="tint">绘制路线</button></div>
+    </section>
+    <section id="active-route-card" class="active-route-card" hidden>
+      <div class="heading"><strong>正在执行的路线</strong><span id="active-route-state"></span></div>
+      <p id="active-motion-summary"></p><p id="draft-notice"></p>
+      <div class="row"><button id="load-active-route">载入执行路线</button><button id="restart-route">从草稿重新开始</button></div>
+    </section>
+    <section class="section draft" id="route-section" hidden>
       <div class="heading"><h2>路线草稿</h2><span class="count"><b id="point-count">0</b> 个点</span></div>
+      <div id="route-empty" class="empty-route"><p>点击地图添加起点，再沿路线继续加点。</p><div class="row"><button id="empty-import">导入路线</button><button id="empty-favorites">从收藏选择</button></div></div>
       <div class="metrics"><div><small>路线长度</small><strong id="route-distance">0 米</strong></div><div><small>预计用时</small><strong id="route-time">—</strong></div></div>
       <div class="edit-actions"><button id="undo" title="撤销（⌘ / Ctrl Z）">↶ 撤销</button><button id="redo" title="重做（⌘ / Ctrl Shift Z）">↷ 重做</button><button id="delete-point">删除点</button><button id="clear-route">清空</button></div>
       <div class="route-options"><label class="check"><input id="closed" type="checkbox">闭合路线</label><label>圈数 <input id="laps" type="number" min="1" max="100" value="1"></label></div>
       <div class="row"><button id="import">导入 JSON / GPX</button><button id="export">导出 JSON</button></div><input id="route-file" type="file" accept=".json,.gpx" hidden>
-      <div class="row"><button id="save-address-favorite">收藏地址</button><button id="save-route-favorite">收藏路线</button></div>
+      <button id="save-route-favorite" class="full-width">收藏这条路线</button>
     </section>
-    <details class="section" open><summary><span id="selection-label">编辑位置</span><small>WGS84</small></summary>
+    <section id="point-section" class="section" hidden><h2>选中的位置</h2><p id="selected-summary">在地图上点击，或搜索一个地点。</p><button id="save-address-favorite" class="full-width">收藏这个位置</button></section>
+    <details class="section" id="coordinate-section" hidden><summary>精确坐标 <small>WGS84</small></summary><p id="selection-label">编辑位置</p>
       <div class="coordinates"><label>纬度<input id="lat" type="number" step="any" min="-90" max="90" value="38.000000"></label><label>经度<input id="lon" type="number" step="any" min="-180" max="180" value="114.520000"></label></div>
       <button id="locate" class="full-width">查看坐标位置</button>
     </details>
-    <details class="section" id="motion-section"><summary>移动设置</summary><div class="segmented motion-tabs"><button id="motion-speed">按速度</button><button id="motion-pace" class="active">按配速</button></div>
-    <div id="speed-controls" hidden><div class="speed-row"><label for="speed">速度</label><output id="speed-label">6 km/h</output></div><input id="speed" type="range" min="0.5" max="30" step="0.5" value="6"></div>
+    <details class="section" id="motion-section" open hidden><summary>移动设置</summary><p id="motion-summary" class="setting-summary"></p><div class="segmented motion-tabs"><button id="motion-speed">按速度</button><button id="motion-pace" class="active">按配速</button></div>
+    <div id="speed-controls" hidden><div class="speed-row"><label for="speed">速度</label><output id="speed-label">6 km/h</output></div><input id="speed" type="range" min="0.5" max="30" step="any" value="6"></div>
     <div id="pace-controls">
       <label class="field-title">目标配速</label><div class="pace-fields"><input id="pace-minutes" aria-label="配速分钟" type="number" min="1" max="60" value="6"><span>分</span><input id="pace-seconds" aria-label="配速秒数" type="number" min="0" max="59" value="0"><span>秒 / km</span></div>
       <label class="check"><input id="pace-random" type="checkbox" checked>平滑随机变速</label>
@@ -46,18 +57,18 @@
     <div class="drift-controls">
       <label class="check"><input id="drift-enabled" type="checkbox" checked>步行随机偏移 · GPS 漂移</label>
       <div class="speed-row"><label for="drift-radius">最大偏移</label><output id="drift-radius-label">2 米</output></div>
-      <input id="drift-radius" type="range" min="0.5" max="10" step="0.5" value="2" aria-describedby="drift-help">
+      <input id="drift-radius" type="range" min="0.5" max="10" step="any" value="2" aria-describedby="drift-help">
       <p id="drift-help" class="micro">在路线周围平滑漂移并轻微摆动，影响实际发送坐标。暂停时冻结，终点前收回；修改后点击应用，移动中用 5 秒渐变。</p>
       <p id="drift-status">开始路线后显示已发送偏移。</p>
     </div>
-    <button id="apply-motion" class="full-width">应用移动设置</button>
+    <div id="motion-change" class="motion-change"><strong id="motion-change-title">开始时自动应用</strong><p id="motion-change-detail">当前设置将随路线开始一起应用。</p><button id="apply-motion" class="full-width tint" hidden>应用更改</button></div>
     </details>
     <details class="section"><summary>设备状态与日志 <small id="log-count">0</small></summary>
       <strong id="status-title">设备状态</strong><p id="status-text"></p>
       <p id="average-pace"></p><span>已发送位置</span><p id="sent-position">尚未发送</p>
       <div class="nudge"><span>微调 10 米</span><button id="west" aria-label="向西移动">←</button><button id="north" aria-label="向北移动">↑</button><button id="south" aria-label="向南移动">↓</button><button id="east" aria-label="向东移动">→</button></div>
       <pre id="logs">尚无记录。</pre>
-    </details><details class="help"><summary>首次使用与连接问题</summary><ol><li>开启 iPhone“设置 → 隐私与安全性 → 开发者模式”，重启后确认。</li><li>保持手机解锁，用可传数据的数据线连接，选择“信任此电脑”。Windows 需先安装 Apple Devices。</li><li>刷新并选择设备，点击“准备并连接”。首次准备可能下载开发者组件。</li><li>选一个位置，点击“应用选中位置”，打开 iPhone 地图并回到当前位置，确认蓝点是否移动。</li><li>结束时点击“恢复真实定位”或“恢复并退出”。若恢复失败，重连后重试，必要时重启手机。</li></ol><p>这款工具发送开发者定位指令，不能验证步道乐跑是否接受记录，也不会修改系统步数。</p></details>
+    </details><details class="help"><summary>首次使用与连接问题</summary><ol><li>开启 iPhone“设置 → 隐私与安全性 → 开发者模式”，重启后确认。</li><li>保持手机解锁，用可传数据的数据线连接，选择“信任此电脑”。Windows 需先安装 Apple Devices。</li><li>刷新并选择设备，点击“准备并连接”。首次准备可能下载开发者组件。</li><li>选一个位置，点击“应用此位置”，打开 iPhone 地图并回到当前位置，确认蓝点是否移动。</li><li>结束时点击“结束并恢复定位”或“恢复并退出”。若恢复失败，重连后重试，必要时重启手机。</li></ol><p>这款工具发送开发者定位指令，不能验证步道乐跑是否接受记录，也不会修改系统步数。</p></details>
   </aside>
   <section class="workspace" aria-label="地图工作区">
     <div class="map-container">
@@ -68,7 +79,7 @@
       <select id="scroll-mode" aria-label="地图滚动方式" title="触控板双指平移，捏合缩放。鼠标可选滚轮缩放。"><option value="zoom">滚轮缩放</option><option value="pan">双指平移</option></select></div>
       <div id="map-loading"><span id="tile-message">正在加载底图…</span><button id="retry-tiles" hidden>重试</button></div>
       <div class="navigation"><button id="fit" title="适应路线" aria-label="适应路线">⌖</button><div><button id="zoom-in" aria-label="放大">＋</button><button id="zoom-out" aria-label="缩小">−</button></div></div>
-      <div class="map-legend"><span class="line"></span>编辑路线 <i></i>已发送位置</div>
+      <div class="map-legend"><span class="line"></span>编辑草稿 <span class="active-line" id="active-legend" hidden></span><span id="active-legend-label" hidden>执行路线</span><i></i>已发送位置</div>
       <a id="map-attribution" class="attribution" href="https://www.amap.com/" target="_blank" rel="noreferrer">© 高德地图</a>
       <section id="search-popup" class="popup" hidden aria-label="地名搜索"><div class="popup-heading"><h2>地名搜索</h2><button id="search-close" aria-label="关闭搜索">×</button></div>
         <form id="place-search-form"><input id="place-query" aria-label="搜索地名" type="search" maxlength="120" placeholder="输入城市、街道或地点" autocomplete="off"><button id="place-search-button" class="tint">搜索地名</button><button id="place-search-clear" type="button" aria-label="清空搜索">×</button></form>
@@ -83,12 +94,16 @@
   <small id="favorites-loading" hidden>正在读取收藏…</small><div id="favorites-list"></div>
 </section>
     </div>
-    <div class="map-status"><span id="map-view"></span><label id="runner-option" hidden title="预览地图标记的跑步起伏"><input type="checkbox" id="runner-toggle">跑步动效</label><span id="demo-banner" hidden>演示模式</span></div>
+    <div class="map-status"><span id="map-view"></span><label id="runner-option" hidden title="预览地图标记的跑步起伏"><input type="checkbox" id="runner-toggle">标记动效</label><span id="demo-banner" hidden>演示模式</span></div>
   </section>
 </main>
-<footer class="transport"><div class="play-status"><span id="status-dot" class="status-dot"></span><div><small>已发送里程</small><strong id="sent-distance">0 米</strong></div></div>
+<footer class="transport">
+  <div class="transport-info"><div class="play-status"><span id="status-dot" class="status-dot"></span><strong id="transport-title">准备开始</strong><span id="sent-distance">0 米</span></div>
+    <progress id="route-progress" max="100" value="0" aria-label="模拟路线进度" hidden></progress><p id="transport-hint">先连接设备，再选择定位或绘制路线。</p>
+  </div>
   <div class="pace-readout"><small>当前配速</small><strong id="current-pace">当前未移动</strong></div>
-  <div class="play-actions"><button id="restore" disabled>恢复真实定位</button><button id="pause" disabled>暂停</button><button id="apply" disabled class="primary">应用编辑位置</button></div>
+  <div class="play-actions"><button id="restore" hidden>结束并恢复定位</button><button id="apply" disabled class="primary" aria-describedby="transport-hint">连接设备</button></div>
 </footer>
+<dialog id="restart-dialog" aria-labelledby="restart-title"><h2 id="restart-title">从草稿起点重新开始？</h2><p>当前位置将跳回草稿起点，已播放进度归零。</p><p id="restart-summary"></p><div class="row"><button id="cancel-restart">继续当前路线</button><button id="confirm-restart" class="primary">确认重新开始</button></div></dialog>
 <div id="toast" role="alert" hidden></div><script type="module" src="/app.js"></script>
 </body></html>

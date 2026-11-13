@@ -39,9 +39,9 @@ class Runtime:
             future.cancel()
             raise RuntimeError("操作超时。请保持手机解锁并检查连接。") from None
 
-    def snapshot(self):
+    def snapshot(self, route=False):
         async def read():
-            return self.engine.snapshot()
+            return self.engine.route_snapshot() if route else self.engine.snapshot()
         return self.call(read(), timeout=5)
 
     def close(self):
@@ -84,10 +84,10 @@ def make_handler(runtime, token, on_exit, data_directory=None):
             if not self.valid_host():
                 return self.reply(403, {"error": "非法主机来源"})
             path = urlsplit(self.path).path
-            if path == "/api/status":
+            if path in ("/api/status", "/api/active-route"):
                 if not self.authenticated():
                     return self.reply(403, {"error": "请从启动程序打开控制台"})
-                return self.reply(200, runtime.snapshot())
+                return self.reply(200, runtime.snapshot(route=path == "/api/active-route"))
             if path in ("/api/favorites", "/api/favorites/item"):
                 if not self.authenticated():
                     return self.reply(403, {"error": "请求未授权"})
@@ -102,6 +102,7 @@ def make_handler(runtime, token, on_exit, data_directory=None):
                       "/map-coordinates.mjs": ("map-coordinates.mjs", "text/javascript; charset=utf-8"),
                       "/editor-map.mjs": ("editor-map.mjs", "text/javascript; charset=utf-8"),
                       "/motion.mjs": ("motion.mjs", "text/javascript; charset=utf-8"),
+                      "/workspace.mjs": ("workspace.mjs", "text/javascript; charset=utf-8"),
                       "/style.css": ("style.css", "text/css; charset=utf-8")}
             if path not in assets:
                 return self.reply(404, {"error": "页面不存在"})
