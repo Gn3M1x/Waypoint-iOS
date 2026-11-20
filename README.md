@@ -4,7 +4,12 @@
 
 USB 连接 iPhone，在电脑上搜索地名、选点、编辑并收藏地址和路线、按速度或配速播放、暂停继续、方向微调和恢复定位。界面运行在本机浏览器，程序必须保持运行。
 
-**当前正式版：0.5.2。修复从 macOS 下载隔离路径启动时无法创建运行环境的问题，并包含 iOS 18.6 连接修复、优化后的操作界面和步行随机偏移功能。真实 iPhone 已验证 DDI 挂载与 DVT 连接；模拟坐标实际效果和 Windows 实机仍待验证。**
+**当前正式版：0.5.3。修复 macOS App Translocation 临时路径失效导致依赖安装失败的问题，并包含 iOS 18.6 连接修复、优化后的操作界面和步行随机偏移功能。真实 iPhone 已验证 DDI 挂载与 DVT 连接；模拟坐标实际效果和 Windows 实机仍待验证。**
+
+## 0.5.3 App Translocation 修复
+
+- `.app` 启动器会先把运行资源复制到 `~/Library/Application Support/Waypoint/app-launchers/`，再让 Terminal 从稳定路径启动。
+- 这样即使 Gatekeeper 在启动后移除 App Translocation 临时目录，依赖安装仍能读取 `requirements.txt` 和应用文件。
 
 ## 0.5.2 macOS 启动修复
 
@@ -25,7 +30,7 @@ USB 连接 iPhone，在电脑上搜索地名、选点、编辑并收藏地址和
 - 蓝线表示正在执行的路线，绿色表示编辑草稿。修改或清空草稿不会中断执行，可重新载入执行路线，也可确认“从草稿重新开始”。
 - 底部持续显示状态、路线进度、当前配速和预计剩余时间。刷新页面会恢复后台正在执行的路线与设置；尚未开始的草稿不会自动保存，请导出或收藏。
 
-下载 [0.5.2 正式版](https://github.com/Gn3M1x/Waypoint-iOS/releases/tag/v0.5.2) 中的 [Waypoint-v0.5.2.zip](https://github.com/Gn3M1x/Waypoint-iOS/releases/download/v0.5.2/Waypoint-v0.5.2.zip)，完整解压后启动。也可通过 [Latest](https://github.com/Gn3M1x/Waypoint-iOS/releases/latest) 查看当前正式发行版。
+下载 [0.5.3 正式版](https://github.com/Gn3M1x/Waypoint-iOS/releases/tag/v0.5.3) 中的 [Waypoint-v0.5.3.zip](https://github.com/Gn3M1x/Waypoint-iOS/releases/download/v0.5.3/Waypoint-v0.5.3.zip)，完整解压后启动。也可通过 [Latest](https://github.com/Gn3M1x/Waypoint-iOS/releases/latest) 查看当前正式发行版。
 
 ## Mac 启动
 
@@ -50,9 +55,9 @@ python3 launch.py
 
 ## 版本与源码
 
-- 当前版本：0.5.2 正式版。更新记录见 [CHANGELOG.md](CHANGELOG.md)，验证范围见 [TESTING.md](TESTING.md)。
+- 当前版本：0.5.3 正式版。更新记录见 [CHANGELOG.md](CHANGELOG.md)，验证范围见 [TESTING.md](TESTING.md)。
 - GitHub 仓库保存源码；包含 Mac `.app` 启动器的完整压缩包放在 Releases。克隆源码后也可执行 `python3 launch.py` 启动，或 `python3 app.py --demo` 预览。
-- 运行 `python3 build_release.py` 可重新构建 `Waypoint-v0.5.2.zip`。发行包使用明确的文件白名单，不包含 `.venv`、收藏数据库、日志和设备配对信息。
+- 运行 `python3 build_release.py` 可重新构建 `Waypoint-v0.5.3.zip`。发行包使用明确的文件白名单，不包含 `.venv`、收藏数据库、日志和设备配对信息。
 
 ## 开发与维护
 

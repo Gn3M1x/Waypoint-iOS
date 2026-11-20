@@ -6,10 +6,32 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-VERSION = "0.5.2"
+VERSION = "0.5.3"
 FILES = ["app.py", "engine.py", "route.py", "motion.py", "geocoder.py", "favorites.py", "launch.py", "requirements.txt", "README.md", "TESTING.md", "CHANGELOG.md", "LICENSE",
          "start-mac.command", "preview.command", "start-windows.bat", "build_release.py", "scripts/check.py",
          "web/index.html", "web/app.js", "web/workspace.mjs", "tests/test_workspace.mjs", "tests/test_http.py", "web/map-coordinates.mjs", "web/motion.mjs", "web/editor-map.mjs", "web/style.css", "tests/test_editor_map.mjs", "tests/browser/demo.mjs", "tests/browser/ui_preview.py", "tests/test_engine.py", "tests/test_favorites.py", "tests/test_launch.py", "tests/test_map_coordinates.mjs", "tests/test_motion.py", "tests/test_geocoder.py", "tests/test_motion_ui.mjs", "THIRD_PARTY_NOTICES.md"]
+
+
+def mac_launcher_script(version):
+    return f'''#!/bin/zsh
+set -eu
+task_resources="$(cd -- "$(dirname -- "$0")/../Resources/ios-location-desk" && pwd)"
+staged_resources="${{HOME:?}}/Library/Application Support/Waypoint/app-launchers/v{version}/Waypoint.app/Contents/Resources/ios-location-desk"
+if [[ ! -f "$staged_resources/.waypoint-resource-snapshot" ]]; then
+  mkdir -p "$(dirname -- "$staged_resources")"
+  stage="$staged_resources.stage.$$"
+  rm -rf "$stage"
+  ditto "$task_resources" "$stage"
+  chmod -R u+rwX "$stage"
+  touch "$stage/.waypoint-resource-snapshot"
+  if [[ -e "$staged_resources" ]]; then
+    chmod -R u+rwX "$staged_resources"
+  fi
+  rm -rf "$staged_resources"
+  mv "$stage" "$staged_resources"
+fi
+exec /usr/bin/open -a Terminal "$staged_resources/start-mac.command"
+'''
 
 
 def main():
@@ -23,7 +45,7 @@ def main():
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(ROOT / name, destination)
     launcher = bundle / "MacOS" / "Waypoint"
-    launcher.write_text('#!/bin/zsh\nset -eu\ntask_resources="$(cd -- "$(dirname -- "$0")/../Resources/ios-location-desk" && pwd)"\nexec /usr/bin/open -a Terminal "$task_resources/start-mac.command"\n')
+    launcher.write_text(mac_launcher_script(VERSION))
     launcher.chmod(0o755)
     (resources / "start-mac.command").chmod(0o755)
     (resources / "preview.command").chmod(0o755)

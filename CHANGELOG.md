@@ -1,5 +1,10 @@
 # 更新记录
 
+## 0.5.3 正式版 · 2026-11-20
+
+- 修复 v0.5.2 在 App Translocation 下依赖安装仍失败的问题：macOS `.app` 启动器现在先把资源快照复制到 `~/Library/Application Support/Waypoint/app-launchers/`，再从该稳定路径启动 Terminal。
+- 保留 v0.5.2 的用户目录运行环境和 v0.5.1 的 iOS 18.6 连接修复。
+
 ## 0.5.2 正式版 · 2026-11-20
 
 - 修复从下载目录直接打开 macOS `.app` 时，Gatekeeper 将应用放入只读 App Translocation 路径，导致首次创建 `.venv` 失败的问题。

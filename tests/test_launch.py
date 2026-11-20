@@ -5,6 +5,7 @@ from pathlib import Path
 
 from favorites import default_demo_data_directory
 from launch import runtime_environment
+from build_release import mac_launcher_script
 
 
 class LaunchPathTests(unittest.TestCase):
@@ -40,6 +41,12 @@ class LaunchPathTests(unittest.TestCase):
         support = self.base/"Application Support"/"Waypoint"
         self.assertEqual(default_demo_data_directory(root, support), support/"demo")
         self.assertNotIn("Waypoint.app", str(default_demo_data_directory(root, support)))
+
+    def test_app_launcher_stages_resources_before_opening_terminal(self):
+        script = mac_launcher_script("0.5.3")
+        self.assertIn("app-launchers/v0.5.3/Waypoint.app/Contents/Resources/ios-location-desk", script)
+        self.assertLess(script.index('ditto "$task_resources" "$stage"'), script.index("/usr/bin/open"))
+        self.assertIn(".waypoint-resource-snapshot", script)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,13 @@
 # 验证记录
 
+## 0.5.3 正式版 · 2026-11-20
+
+- 确认 v0.5.2 ZIP 内 `requirements.txt` 存在；用户报错中的 App Translocation 目录在依赖安装阶段已被系统移除。
+- `.app` 启动器现先将资源复制到用户级 `Application Support/Waypoint/app-launchers/v0.5.3/Waypoint.app/Contents/Resources/ios-location-desk/`，再启动 Terminal，避免依赖安装阶段访问失效的临时路径。
+- 将正式 ZIP 解压并把 `.app` 设为只读，运行其中的 Mac 启动器；确认它先将资源快照复制到 Application Support，再打开 Terminal，原包内没有生成 `.venv`。
+- 从稳定副本启动打包应用，确认 `requirements.txt` 可读，且本机 `/api/status` 返回 HTTP 200。测试使用临时 HOME 和预装依赖环境，没有连接或修改 iPhone。
+- 完整回归通过：**63 项 Python、23 项 JavaScript**，Chrome 演示流程通过；0、9、2000 路径点均完成性能采样。
+
 ## 0.5.2 正式版 · 2026-11-20
 
 - 复现用户报告的 Gatekeeper App Translocation 只读路径错误；根因是 `launch.py` 将虚拟环境创建在 `.app/Contents/Resources/ios-location-desk/.venv`。
