@@ -1,14 +1,30 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Install into this folder's private venv and open the local control panel."""
+"""Prepare an isolated Python environment and open the local control panel."""
+import hashlib
 import os
+import platform
 import shutil
 import subprocess
 import sys
 import venv
 from pathlib import Path
 
+from favorites import application_support_directory, is_app_bundle
+
 ROOT = Path(__file__).resolve().parent
+
+
+def runtime_environment(root=ROOT, support_directory=None):
+    """Use writable app support for a bundled launcher and a local venv for source installs."""
+    root = Path(root).resolve()
+    if not is_app_bundle(root):
+        return root/".venv"
+    requirements = (root/"requirements.txt").read_bytes()
+    fingerprint = hashlib.sha256(requirements).hexdigest()[:12]
+    python_tag = f"{sys.version_info.major}.{sys.version_info.minor}-{platform.machine().lower()}"
+    support = Path(support_directory) if support_directory else application_support_directory()
+    return support/"runtimes"/f"python-{python_tag}-{fingerprint}"
 
 
 def main():
@@ -17,7 +33,7 @@ def main():
     arguments = sys.argv[1:]
     if "--demo" in arguments:
         os.execv(sys.executable, [sys.executable, str(ROOT / "app.py"), *arguments])
-    environment = ROOT / ".venv"
+    environment = runtime_environment(ROOT)
     python = environment / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
     if not python.exists():
         print("正在创建独立运行环境…", flush=True)

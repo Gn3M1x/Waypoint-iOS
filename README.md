@@ -4,7 +4,13 @@
 
 USB 连接 iPhone，在电脑上搜索地名、选点、编辑并收藏地址和路线、按速度或配速播放、暂停继续、方向微调和恢复定位。界面运行在本机浏览器，程序必须保持运行。
 
-**当前正式版：0.5.1。包含 iOS 18.6 连接修复、优化后的操作界面和步行随机偏移功能。真实 iPhone 已验证 DDI 挂载与 DVT 连接；模拟坐标实际效果和 Windows 实机仍待验证。**
+**当前正式版：0.5.2。修复从 macOS 下载隔离路径启动时无法创建运行环境的问题，并包含 iOS 18.6 连接修复、优化后的操作界面和步行随机偏移功能。真实 iPhone 已验证 DDI 挂载与 DVT 连接；模拟坐标实际效果和 Windows 实机仍待验证。**
+
+## 0.5.2 macOS 启动修复
+
+- 将 `.app` 的 Python 环境放入 `~/Library/Application Support/Waypoint/`，避免 Gatekeeper 的 App Translocation 只读目录阻止首次启动。
+- 运行环境按 Python 版本、处理器架构和依赖清单分别存放；更新包不会覆盖其他版本正在使用的环境。
+- 收藏与预览数据继续写入用户可写目录，不会写进 `.app`。
 
 ## 0.5.1 连接修复
 
@@ -19,11 +25,11 @@ USB 连接 iPhone，在电脑上搜索地名、选点、编辑并收藏地址和
 - 蓝线表示正在执行的路线，绿色表示编辑草稿。修改或清空草稿不会中断执行，可重新载入执行路线，也可确认“从草稿重新开始”。
 - 底部持续显示状态、路线进度、当前配速和预计剩余时间。刷新页面会恢复后台正在执行的路线与设置；尚未开始的草稿不会自动保存，请导出或收藏。
 
-下载 [0.5.1 正式版](https://github.com/Gn3M1x/Waypoint-iOS/releases/tag/v0.5.1) 中的 [Waypoint-v0.5.1.zip](https://github.com/Gn3M1x/Waypoint-iOS/releases/download/v0.5.1/Waypoint-v0.5.1.zip)，完整解压后启动。也可通过 [Latest](https://github.com/Gn3M1x/Waypoint-iOS/releases/latest) 查看当前正式发行版。
+下载 [0.5.2 正式版](https://github.com/Gn3M1x/Waypoint-iOS/releases/tag/v0.5.2) 中的 [Waypoint-v0.5.2.zip](https://github.com/Gn3M1x/Waypoint-iOS/releases/download/v0.5.2/Waypoint-v0.5.2.zip)，完整解压后启动。也可通过 [Latest](https://github.com/Gn3M1x/Waypoint-iOS/releases/latest) 查看当前正式发行版。
 
 ## Mac 启动
 
-1. 从 GitHub Releases 下载发行包并解压整个文件夹，双击 `start-mac.command`，或打开附带的 `Waypoint.app`。也可克隆仓库后双击 `start-mac.command`。首次启动会创建独立 Python 环境并联网安装依赖，需要 Python 3.11+，推荐 3.13。
+1. 从 GitHub Releases 下载发行包并解压整个文件夹，双击 `start-mac.command`，或打开附带的 `Waypoint.app`。也可克隆仓库后双击 `start-mac.command`。首次启动会在用户的“资源库/Application Support/Waypoint”中创建独立 Python 环境并联网安装依赖，需要 Python 3.11+，推荐 3.13。可从下载目录直接启动，运行环境不会写进 `.app`。
 2. 手机通过数据线连接 Mac，解锁并确认“信任此电脑”。开启“设置 → 隐私与安全性 → 开发者模式”，按提示重启。
 3. 浏览器自动打开后，点“刷新”，选择 iPhone，再点“准备并连接”。首次准备可能联网下载开发者组件。
 4. 切换到左上角的“单点定位”，点击地图选址，再点“应用此位置”。打开 iPhone 自带地图并定位到当前位置，确认蓝点是否移动。
@@ -44,9 +50,9 @@ python3 launch.py
 
 ## 版本与源码
 
-- 当前版本：0.5.1 正式版。更新记录见 [CHANGELOG.md](CHANGELOG.md)，验证范围见 [TESTING.md](TESTING.md)。
+- 当前版本：0.5.2 正式版。更新记录见 [CHANGELOG.md](CHANGELOG.md)，验证范围见 [TESTING.md](TESTING.md)。
 - GitHub 仓库保存源码；包含 Mac `.app` 启动器的完整压缩包放在 Releases。克隆源码后也可执行 `python3 launch.py` 启动，或 `python3 app.py --demo` 预览。
-- 运行 `python3 build_release.py` 可重新构建 `Waypoint-v0.5.1.zip`。发行包使用明确的文件白名单，不包含 `.venv`、收藏数据库、日志和设备配对信息。
+- 运行 `python3 build_release.py` 可重新构建 `Waypoint-v0.5.2.zip`。发行包使用明确的文件白名单，不包含 `.venv`、收藏数据库、日志和设备配对信息。
 
 ## 开发与维护
 

@@ -20,17 +20,34 @@ class FavoriteError(ValueError):
         self.status = status
 
 
+def is_app_bundle(root):
+    return any(parent.suffix.casefold() == ".app" for parent in Path(root).resolve().parents)
+
+
+def application_support_directory():
+    if sys.platform == "darwin":
+        return Path.home()/"Library"/"Application Support"/"Waypoint"
+    if os.name == "nt":
+        return Path(os.environ.get("LOCALAPPDATA", Path.home()))/"Waypoint"
+    data_home = Path(os.environ.get("XDG_DATA_HOME", Path.home()/".local"/"share"))
+    return data_home/"Waypoint"
+
+
 def default_data_directory(root):
     if os.environ.get("WAYPOINT_DATA_DIR"):
         return Path(os.environ["WAYPOINT_DATA_DIR"]).expanduser()
     # Standalone .app updates share application data. Source/portable installs
     # keep their data alongside the source and do not write outside that folder.
-    if any(p.suffix == ".app" for p in Path(root).parents):
-        if sys.platform == "darwin":
-            return Path.home()/"Library"/"Application Support"/"Waypoint"
-        if os.name == "nt":
-            return Path(os.environ.get("LOCALAPPDATA", Path.home()))/"Waypoint"
+    if is_app_bundle(root):
+        return application_support_directory()
     return Path(root)/"user-data"
+
+
+def default_demo_data_directory(root, support_directory=None):
+    if is_app_bundle(root):
+        support = Path(support_directory) if support_directory is not None else application_support_directory()
+        return support/"demo"
+    return Path(root)/"user-data-demo"
 
 
 def clean_name(value):

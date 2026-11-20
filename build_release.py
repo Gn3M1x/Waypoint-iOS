@@ -6,10 +6,10 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-VERSION = "0.5.1"
+VERSION = "0.5.2"
 FILES = ["app.py", "engine.py", "route.py", "motion.py", "geocoder.py", "favorites.py", "launch.py", "requirements.txt", "README.md", "TESTING.md", "CHANGELOG.md", "LICENSE",
          "start-mac.command", "preview.command", "start-windows.bat", "build_release.py", "scripts/check.py",
-         "web/index.html", "web/app.js", "web/workspace.mjs", "tests/test_workspace.mjs", "tests/test_http.py", "web/map-coordinates.mjs", "web/motion.mjs", "web/editor-map.mjs", "web/style.css", "tests/test_editor_map.mjs", "tests/browser/demo.mjs", "tests/browser/ui_preview.py", "tests/test_engine.py", "tests/test_favorites.py", "tests/test_map_coordinates.mjs", "tests/test_motion.py", "tests/test_geocoder.py", "tests/test_motion_ui.mjs", "THIRD_PARTY_NOTICES.md"]
+         "web/index.html", "web/app.js", "web/workspace.mjs", "tests/test_workspace.mjs", "tests/test_http.py", "web/map-coordinates.mjs", "web/motion.mjs", "web/editor-map.mjs", "web/style.css", "tests/test_editor_map.mjs", "tests/browser/demo.mjs", "tests/browser/ui_preview.py", "tests/test_engine.py", "tests/test_favorites.py", "tests/test_launch.py", "tests/test_map_coordinates.mjs", "tests/test_motion.py", "tests/test_geocoder.py", "tests/test_motion_ui.mjs", "THIRD_PARTY_NOTICES.md"]
 
 
 def main():

@@ -17,7 +17,7 @@ from urllib.parse import urlsplit, parse_qs
 
 from engine import Engine
 from geocoder import Geocoder, SearchError
-from favorites import FavoritesStore, FavoriteError, default_data_directory
+from favorites import FavoritesStore, FavoriteError, default_data_directory, default_demo_data_directory
 
 ROOT = Path(__file__).resolve().parent
 MAX_BODY = 1_000_000
@@ -160,7 +160,7 @@ def main():
     runtime = Runtime(args.demo)
     # A controlled in-place desktop update can retain the existing local session.
     token = os.environ.pop("WAYPOINT_SESSION_TOKEN", None) or secrets.token_urlsafe(32)
-    data_directory = args.data_dir or (ROOT/"user-data-demo" if args.demo else default_data_directory(ROOT))
+    data_directory = args.data_dir or (default_demo_data_directory(ROOT) if args.demo else default_data_directory(ROOT))
     server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(runtime, token, lambda: server.shutdown(), data_directory))
     server.daemon_threads = True
     url = f"http://127.0.0.1:{server.server_port}/#token={token}"

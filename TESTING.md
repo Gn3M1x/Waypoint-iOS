@@ -1,5 +1,13 @@
 # 验证记录
 
+## 0.5.2 正式版 · 2026-11-20
+
+- 复现用户报告的 Gatekeeper App Translocation 只读路径错误；根因是 `launch.py` 将虚拟环境创建在 `.app/Contents/Resources/ios-location-desk/.venv`。
+- `.app` 现在按 Python 版本、处理器架构和 `requirements.txt` 内容，把环境创建到用户级 `Application Support/Waypoint/runtimes/`；源码目录启动仍使用本地 `.venv`。收藏和演示数据路径也不会落入只读 `.app`。
+- 将 v0.5.2 ZIP 解压后把整个 `Waypoint.app` 设为只读，仍能运行启动器并通过本机 `/api/status`（HTTP 200）；环境路径在 `Application Support`，包内没有创建 `.venv`。
+- 新增启动路径测试。完整检查通过：**62 项 Python、23 项 JavaScript**，Chrome 演示回归通过，0、9、2000 路径点均完成性能采样。
+- 路径测试确认同一 Python 版本与架构下，不同依赖清单会得到隔离的环境路径，避免版本间覆盖。
+
 ## 0.5.1 正式版 · 2026-11-20
 
 - 复现了 iOS 18.6 设备可被 USB 识别、配对读取正常且 Developer Mode 为 ON，但正式版锁定的 `pymobiledevice3 11.50.2` 在 DDI 自动挂载步骤超过 180 秒未完成。
