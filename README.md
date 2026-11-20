@@ -4,9 +4,14 @@
 
 USB 连接 iPhone，在电脑上搜索地名、选点、编辑并收藏地址和路线、按速度或配速播放、暂停继续、方向微调和恢复定位。界面运行在本机浏览器，程序必须保持运行。
 
-**当前正式版：0.5.0。包含新的操作界面和步行随机偏移功能。已完成演示设备与浏览器回归，真实 iPhone 坐标注入效果和 Windows 实机仍待验证。**
+**当前正式版：0.5.1。包含 iOS 18.6 连接修复、优化后的操作界面和步行随机偏移功能。真实 iPhone 已验证 DDI 挂载与 DVT 连接；模拟坐标实际效果和 Windows 实机仍待验证。**
 
-## 0.5.0 新版操作界面
+## 0.5.1 连接修复
+
+- 更新定位依赖至 `pymobiledevice3 11.61.0`，修复旧版开发者映像准备长时间卡住、导致 iOS 18.6 设备无法进入定位服务连接阶段的问题。
+- 首次连接仍需联网准备 Apple 开发者映像；请使用新版完整发行包，旧版不会自动获得此次修复。
+
+## 操作界面与路线模拟
 
 - 底部主按钮随状态切换：连接设备 → 开始模拟 → 暂停 → 继续。到达终点后显示“结束并恢复定位”。
 - 侧栏随浏览、单点定位和路线模拟切换；连接成功后收起设备详情。空路线提供导入和收藏入口。
@@ -14,7 +19,7 @@ USB 连接 iPhone，在电脑上搜索地名、选点、编辑并收藏地址和
 - 蓝线表示正在执行的路线，绿色表示编辑草稿。修改或清空草稿不会中断执行，可重新载入执行路线，也可确认“从草稿重新开始”。
 - 底部持续显示状态、路线进度、当前配速和预计剩余时间。刷新页面会恢复后台正在执行的路线与设置；尚未开始的草稿不会自动保存，请导出或收藏。
 
-下载 [0.5.0 正式版](https://github.com/Gn3M1x/Waypoint-iOS/releases/tag/v0.5.0) 中的 [Waypoint-v0.5.0.zip](https://github.com/Gn3M1x/Waypoint-iOS/releases/download/v0.5.0/Waypoint-v0.5.0.zip)，完整解压后启动。也可通过 [Latest](https://github.com/Gn3M1x/Waypoint-iOS/releases/latest) 查看当前正式发行版。
+下载 [0.5.1 正式版](https://github.com/Gn3M1x/Waypoint-iOS/releases/tag/v0.5.1) 中的 [Waypoint-v0.5.1.zip](https://github.com/Gn3M1x/Waypoint-iOS/releases/download/v0.5.1/Waypoint-v0.5.1.zip)，完整解压后启动。也可通过 [Latest](https://github.com/Gn3M1x/Waypoint-iOS/releases/latest) 查看当前正式发行版。
 
 ## Mac 启动
 
@@ -39,9 +44,9 @@ python3 launch.py
 
 ## 版本与源码
 
-- 当前版本：0.5.0 正式版。更新记录见 [CHANGELOG.md](CHANGELOG.md)，验证范围见 [TESTING.md](TESTING.md)。
+- 当前版本：0.5.1 正式版。更新记录见 [CHANGELOG.md](CHANGELOG.md)，验证范围见 [TESTING.md](TESTING.md)。
 - GitHub 仓库保存源码；包含 Mac `.app` 启动器的完整压缩包放在 Releases。克隆源码后也可执行 `python3 launch.py` 启动，或 `python3 app.py --demo` 预览。
-- 运行 `python3 build_release.py` 可重新构建 `Waypoint-v0.5.0.zip`。发行包使用明确的文件白名单，不包含 `.venv`、收藏数据库、日志和设备配对信息。
+- 运行 `python3 build_release.py` 可重新构建 `Waypoint-v0.5.1.zip`。发行包使用明确的文件白名单，不包含 `.venv`、收藏数据库、日志和设备配对信息。
 
 ## 开发与维护
 
@@ -133,7 +138,7 @@ Windows 可将 `python3` 换成 `py -3`。新增 Python 测试沿用 `tests/test
 ## 实现与验证范围
 
 - Python 标准库提供本机 HTTP 界面；只监听 `127.0.0.1`，每次运行使用新的会话令牌，校验 Host 与 Origin。设备标识不会写入持久日志。
-- `pymobiledevice3==11.50.2` 提供 USB 识别、开发者组件准备、`PreferredRsdTunnel`、`DvtProvider` 和 `LocationSimulation`。连接与定位保持在同一进程、同一异步会话。
+- `pymobiledevice3==11.61.0` 提供 USB 识别、开发者组件准备、`PreferredRsdTunnel`、`DvtProvider` 和 `LocationSimulation`。连接与定位保持在同一进程、同一异步会话。
 - 位置发送失败或恢复失败会保留待恢复状态。更换另一台设备前必须先恢复原设备。
 - 不读取步道乐跑账号，不调用其私有接口，不修改系统步数，不包含针对该应用的检测规避功能。
 - 自动测试使用明确的假设备适配器，覆盖路线时间、暂停与继续、坐标边界、发送失败、恢复失败与断线重连。测试通过不代表 iOS 实机兼容。
@@ -154,7 +159,7 @@ node --test tests/test_map_coordinates.mjs tests/test_motion_ui.mjs
 - [Nominatim 搜索 API](https://nominatim.org/release-docs/latest/api/Search/)
 - [Nominatim 使用政策](https://operations.osmfoundation.org/policies/nominatim/)
 - [高德 POI 2.0 搜索](https://lbs.amap.com/api/webservice/guide/api-advanced/newpoisearch)
-- [pymobiledevice3 11.50.2](https://pypi.org/project/pymobiledevice3/11.50.2/)
+- [pymobiledevice3 11.61.0](https://pypi.org/project/pymobiledevice3/11.61.0/)
 - [iOS 27 定位未生效的 GeoPort 用户报告](https://github.com/davesc63/GeoPort/issues/195)——其他项目中的报告，不是本工具的测试结果。
 - [步道乐跑隐私政策](https://api2.lptiyu.com/v3/api.php/Login/user_privacy)列出 iOS 的定位和系统步数权限；没有据此推断具体反作弊算法。
 

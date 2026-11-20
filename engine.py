@@ -11,7 +11,7 @@ from contextlib import AsyncExitStack
 from route import Route, destination, distance, number, point
 from motion import DriftProfile, MotionSettings, SpeedProfile
 
-REQUIRED_PMD = "11.50.2"
+REQUIRED_PMD = "11.61.0"
 
 
 def dependency_info():

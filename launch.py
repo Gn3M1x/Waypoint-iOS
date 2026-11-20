@@ -22,7 +22,7 @@ def main():
     if not python.exists():
         print("正在创建独立运行环境…", flush=True)
         venv.create(environment, with_pip=True)
-    probe = subprocess.run([str(python), "-c", "import certifi; from importlib.metadata import version; from pymobiledevice3.remote.rsd_tunnel import PreferredRsdTunnel; assert version('pymobiledevice3') == '11.50.2'"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    probe = subprocess.run([str(python), "-c", "import certifi; from importlib.metadata import version; from pymobiledevice3.remote.rsd_tunnel import PreferredRsdTunnel; assert version('pymobiledevice3') == '11.61.0'"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     if probe.returncode:
         print("首次启动正在安装定位组件，需要联网，可能花几分钟。", flush=True)
         uv = shutil.which("uv")
